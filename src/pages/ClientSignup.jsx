@@ -1,176 +1,205 @@
 import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { useAuth } from '../lib/AuthContext.jsx'
+import styles from './ClientSignup.module.css'
 
-const card = { background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '22px 24px' }
-
-export default function SystemePoints() {
-  const { user } = useAuth()
-  const [produits, setProduits] = useState([
-    { id: 1, nom: 'Baguette', points: 5, actif: true },
-    { id: 2, nom: 'Viennoiserie', points: 10, actif: true },
-    { id: 3, nom: 'Pâtisserie', points: 20, actif: true },
-  ])
-  const [rewards, setRewards] = useState([
-    { id: 1, nom: 'Café offert', points_requis: 50 },
-    { id: 2, nom: 'Viennoiserie offerte', points_requis: 100 },
-    { id: 3, nom: 'Réduction 10%', points_requis: 200 },
-  ])
-  const [bonus, setBonus] = useState(50)
-  const [saved, setSaved] = useState(false)
+export default function ClientSignup() {
+  const navigate = useNavigate()
+  const { slug } = useParams()
+  const [commercant, setCommercant] = useState(null)
+  const [step, setStep] = useState(1) // 1 = inscription, 2 = bienvenue
+  const [form, setForm] = useState({ name: '', email: '', tel: '', accept: false })
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [nextId, setNextId] = useState(10)
+  const [loadingPage, setLoadingPage] = useState(true)
+  const [clientData, setClientData] = useState(null)
+  const handle = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  useEffect(() => { if (user) loadData() }, [user])
+  useEffect(() => { loadCommercant() }, [slug])
 
-  async function loadData() {
-    const [catsRes, rewsRes, commRes] = await Promise.all([
-      supabase.from('categories').select('*').eq('commercant_id', user.id).order('created_at'),
-      supabase.from('recompenses').select('*').eq('commercant_id', user.id).order('points_requis'),
-      supabase.from('commercants').select('bonus_bienvenue').eq('id', user.id).single(),
-    ])
-    if (catsRes.data?.length > 0) setProduits(catsRes.data.map(c => ({ id: c.id, nom: c.nom, points: c.points_par_euro, actif: c.actif })))
-    if (rewsRes.data?.length > 0) setRewards(rewsRes.data.map(r => ({ id: r.id, nom: r.nom, points_requis: r.points_requis })))
-    if (commRes.data) setBonus(commRes.data.bonus_bienvenue)
+  async function loadCommercant() {
+    setLoadingPage(true)
+    const { data } = slug
+      ? await supabase.from('commercants').select('*').eq('slug', slug).single()
+      : await supabase.from('commercants').select('*').limit(1).single()
+    setCommercant(data)
+    setLoadingPage(false)
   }
 
-  const save = async () => {
+  async function handleSubmit() {
+    if (!form.name.trim() || !form.email.trim()) {
+      setError('Veuillez renseigner votre nom et votre email.')
+      return
+    }
     setLoading(true)
+    setError('')
     try {
-      await supabase.from('commercants').update({ bonus_bienvenue: bonus }).eq('id', user.id)
-      await supabase.from('categories').delete().eq('commercant_id', user.id)
-      const validProduits = produits.filter(p => p.nom.trim())
-      if (validProduits.length > 0) {
-        await supabase.from('categories').insert(validProduits.map(p => ({ commercant_id: user.id, nom: p.nom, points_par_euro: p.points, actif: p.actif })))
+      // Vérifie si déjà inscrit
+      const { data: existing } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('commercant_id', commercant.id)
+        .eq('email', form.email.trim())
+        .maybeSingle()
+
+      if (existing) {
+        setError('Vous êtes déjà inscrit à ce programme avec cet email.')
+        setLoading(false)
+        return
       }
-      await supabase.from('recompenses').delete().eq('commercant_id', user.id)
-      const validRews = rewards.filter(r => r.nom.trim())
-      if (validRews.length > 0) {
-        await supabase.from('recompenses').insert(validRews.map(r => ({ commercant_id: user.id, nom: r.nom, points_requis: r.points_requis })))
+
+      const { data, error: err } = await supabase
+        .from('clients')
+        .insert({
+          commercant_id: commercant.id,
+          nom_complet: form.name.trim(),
+          email: form.email.trim(),
+          telephone: form.tel.trim(),
+          points: commercant.bonus_bienvenue || 0,
+          notifications_acceptees: form.accept,
+        })
+        .select()
+        .single()
+
+      if (err) throw err
+
+      if (commercant.bonus_bienvenue > 0) {
+        await supabase.from('transactions').insert({
+          client_id: data.id,
+          commercant_id: commercant.id,
+          points: commercant.bonus_bienvenue,
+          type: 'bonus_bienvenue',
+          description: 'Bonus de bienvenue',
+        })
       }
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
+
+      setClientData(data)
+      sessionStorage.setItem('client_data', JSON.stringify(data))
+      sessionStorage.setItem('commercant_data', JSON.stringify(commercant))
+      setStep(2)
+    } catch (e) {
+      setError('Une erreur est survenue. Réessayez.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const addProduit = () => { setProduits(p => [...p, { id: nextId, nom: '', points: 10, actif: true }]); setNextId(n => n + 1) }
-  const delProduit = (id) => setProduits(p => p.filter(x => x.id !== id))
-  const updateProduit = (id, f, v) => setProduits(p => p.map(x => x.id === id ? { ...x, [f]: v } : x))
-  const addReward = () => { setRewards(r => [...r, { id: nextId, nom: '', points_requis: 100 }]); setNextId(n => n + 1) }
-  const delReward = (id) => setRewards(r => r.filter(x => x.id !== id))
-  const updateReward = (id, f, v) => setRewards(r => r.map(x => x.id === id ? { ...x, [f]: v } : x))
-  const firstReward = [...rewards].sort((a, b) => a.points_requis - b.points_requis)[0]
+  if (loadingPage) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#94A3B8', fontSize: 14 }}>
+      Chargement...
+    </div>
+  )
 
-  return (
-    <div style={{ minHeight: '100vh', background: '#F8FAFF' }}>
-      <div style={{ background: '#fff', borderBottom: '1px solid #E8F0FE', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F172A' }}>Système de points</div>
-          <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 2 }}>Définissez vos produits et récompenses</div>
+  if (!commercant) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Plus Jakarta Sans, sans-serif', flexDirection: 'column', gap: 12, padding: 24, textAlign: 'center' }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>Programme introuvable</div>
+      <div style={{ fontSize: 14, color: '#64748B' }}>Ce lien ne correspond à aucun commerce.</div>
+    </div>
+  )
+
+  // ÉTAPE 2 — BIENVENUE APRÈS INSCRIPTION
+  if (step === 2 && clientData) return (
+    <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#F8FAFF', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+      <div style={{ background: '#2563EB', padding: '40px 24px 32px', color: '#fff', textAlign: 'center' }}>
+        <div style={{ width: 64, height: 64, background: 'rgba(255,255,255,.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 28 }}>
+          🎉
         </div>
-        <button onClick={save} disabled={loading} style={{ background: saved ? '#16A34A' : '#2563EB', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: '9px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
-          {loading ? 'Sauvegarde...' : saved ? '✓ Enregistré' : 'Enregistrer'}
-        </button>
+        <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>Bienvenue {clientData.nom_complet?.split(' ')[0]} !</h2>
+        <p style={{ fontSize: 14, opacity: .85 }}>Vous êtes inscrit au programme de fidélité de {commercant.nom_commerce}</p>
       </div>
 
-      <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900 }}>
+      <div style={{ padding: '24px 20px' }}>
 
-        {/* BONUS */}
-        <div style={card}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Bonus de bienvenue</div>
-          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Points offerts automatiquement à chaque nouveau client inscrit</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 9, padding: '10px 14px', width: 'fit-content' }}>
-            <input type="number" min="0" value={bonus} onChange={e => setBonus(+e.target.value)} style={{ border: 'none', background: 'none', fontSize: 22, fontWeight: 800, color: '#0F172A', width: 70, fontFamily: 'inherit', outline: 'none' }} />
-            <span style={{ fontSize: 13, color: '#94A3B8' }}>points offerts à l'inscription</span>
-          </div>
-        </div>
-
-        {/* PRODUITS */}
-        <div style={card}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Produits & catégories</div>
-          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 6, lineHeight: 1.6 }}>Définissez combien de points chaque produit rapporte à votre client</div>
-          <div style={{ fontSize: 12, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '8px 12px', marginBottom: 20, display: 'inline-block' }}>
-            Ex : "Baguette = 5 pts", "Menu du jour = 30 pts", "Coupe femme = 50 pts"
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 80px 36px', gap: 10, padding: '0 14px', marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Produit / Catégorie</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Points</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Actif</span>
-            <span />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {produits.map(p => (
-              <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 80px 36px', gap: 10, alignItems: 'center', background: p.actif ? '#F8FAFF' : '#FAFAFA', border: `1.5px solid ${p.actif ? '#E2E8F0' : '#F1F5F9'}`, borderRadius: 10, padding: '11px 14px', opacity: p.actif ? 1 : 0.55 }}>
-                <input value={p.nom} onChange={e => updateProduit(p.id, 'nom', e.target.value)} placeholder="Ex : Baguette, Menu midi, Coupe..." style={{ border: 'none', background: 'none', fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'inherit', outline: 'none', width: '100%' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 7, padding: '6px 10px' }}>
-                  <input type="number" min="1" value={p.points} onChange={e => updateProduit(p.id, 'points', +e.target.value)} style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 800, color: '#2563EB', width: 44, fontFamily: 'inherit', outline: 'none' }} />
-                  <span style={{ fontSize: 11, color: '#94A3B8' }}>pts</span>
-                </div>
-                <button onClick={() => updateProduit(p.id, 'actif', !p.actif)} style={{ width: 38, height: 22, borderRadius: 999, border: 'none', cursor: 'pointer', background: p.actif ? '#2563EB' : '#E2E8F0', position: 'relative', padding: 0 }}>
-                  <span style={{ position: 'absolute', top: 2, left: p.actif ? 18 : 2, width: 18, height: 18, background: '#fff', borderRadius: '50%', transition: 'left .2s', display: 'block' }} />
-                </button>
-                <button onClick={() => delProduit(p.id)} style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#CBD5E1', fontSize: 16, fontWeight: 700 }}>✕</button>
-              </div>
-            ))}
-          </div>
-          <button onClick={addProduit} style={{ width: '100%', marginTop: 10, background: 'none', border: '1.5px dashed #BFDBFE', color: '#2563EB', fontSize: 13, fontWeight: 600, padding: 10, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
-            + Ajouter un produit ou une catégorie
-          </button>
-        </div>
-
-        {/* RÉCOMPENSES */}
-        <div style={card}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Récompenses</div>
-          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 1.6 }}>Ce que vos clients obtiennent en échangeant leurs points</div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 170px 36px', gap: 10, padding: '0 14px', marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Récompense</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Points nécessaires</span>
-            <span />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {rewards.map(r => (
-              <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '1fr 170px 36px', gap: 10, alignItems: 'center', background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '11px 14px' }}>
-                <input value={r.nom} onChange={e => updateReward(r.id, 'nom', e.target.value)} placeholder="Ex : Café offert, Remise 5€..." style={{ border: 'none', background: 'none', fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'inherit', outline: 'none', width: '100%' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 7, padding: '6px 10px' }}>
-                  <input type="number" min="1" value={r.points_requis} onChange={e => updateReward(r.id, 'points_requis', +e.target.value)} style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 800, color: '#2563EB', width: 60, fontFamily: 'inherit', outline: 'none' }} />
-                  <span style={{ fontSize: 11, color: '#94A3B8' }}>points</span>
-                </div>
-                <button onClick={() => delReward(r.id)} style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#CBD5E1', fontSize: 16, fontWeight: 700 }}>✕</button>
-              </div>
-            ))}
-          </div>
-          <button onClick={addReward} style={{ width: '100%', marginTop: 10, background: 'none', border: '1.5px dashed #BFDBFE', color: '#2563EB', fontSize: 13, fontWeight: 600, padding: 10, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
-            + Ajouter une récompense
-          </button>
-        </div>
-
-        {/* APERÇU */}
-        <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', border: '1px solid #BFDBFE', borderRadius: 12, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#1D4ED8', marginBottom: 8 }}>Aperçu côté client</div>
-            {produits.filter(p => p.actif && p.nom).slice(0, 4).map(p => (
-              <div key={p.id} style={{ fontSize: 13, color: '#1E40AF', fontWeight: 500, marginBottom: 3 }}>
-                <span style={{ fontWeight: 700 }}>{p.nom}</span> → +{p.points} pts
-              </div>
-            ))}
-          </div>
-          <div style={{ background: '#2563EB', borderRadius: 12, padding: '16px 20px', color: '#fff', minWidth: 200 }}>
-            <div style={{ fontSize: 10, opacity: .7, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Exemple client</div>
-            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1, marginBottom: 8 }}>{bonus} pts</div>
-            <div style={{ background: 'rgba(255,255,255,.2)', borderRadius: 999, height: 4, marginBottom: 5 }}>
-              <div style={{ background: '#fff', borderRadius: 999, height: 4, width: firstReward ? `${Math.min(100, (bonus / firstReward.points_requis) * 100)}%` : '0%' }} />
-            </div>
-            <div style={{ fontSize: 11, opacity: .75 }}>
-              {firstReward ? `Encore ${Math.max(0, firstReward.points_requis - bonus)} pts → ${firstReward.nom}` : '—'}
+        {/* POINTS OFFERTS */}
+        {commercant.bonus_bienvenue > 0 && (
+          <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '16px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, background: '#DCFCE7', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>⭐</div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#16A34A' }}>{commercant.bonus_bienvenue} points offerts !</div>
+              <div style={{ fontSize: 12, color: '#166534' }}>Cadeau de bienvenue sur votre compte</div>
             </div>
           </div>
+        )}
+
+        {/* COMMENT ÇA MARCHE */}
+        <div style={{ background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '20px', marginBottom: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#0F172A', marginBottom: 16 }}>Comment ça marche ?</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {[
+              { n: '1', t: 'Faites vos achats', d: 'À chaque visite chez ' + commercant.nom_commerce + ', vous gagnez des points sur vos achats.' },
+              { n: '2', t: 'Montrez votre QR code', d: 'Le commerçant scanne votre QR code pour créditer vos points automatiquement.' },
+              { n: '3', t: 'Échangez vos récompenses', d: 'Dès que vous avez assez de points, réclamez votre récompense !' },
+            ].map(s => (
+              <div key={s.n} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#EFF6FF', color: '#2563EB', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{s.n}</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 2 }}>{s.t}</div>
+                  <div style={{ fontSize: 12, color: '#64748B', lineHeight: 1.5 }}>{s.d}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
+        <button
+          onClick={() => navigate('/ma-carte')}
+          style={{ width: '100%', background: '#2563EB', color: '#fff', border: 'none', fontSize: 15, fontWeight: 700, padding: 14, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          Voir ma carte de fidélité →
+        </button>
+
+        <p style={{ fontSize: 12, color: '#CBD5E1', textAlign: 'center', marginTop: 16, lineHeight: 1.6 }}>
+          Programme géré par FidèleApp · Données protégées RGPD
+        </p>
+      </div>
+    </div>
+  )
+
+  // ÉTAPE 1 — INSCRIPTION
+  return (
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <div className={styles.shopLogo}>{commercant.nom_commerce?.[0]?.toUpperCase()}</div>
+        <h2 className={styles.shopName}>{commercant.nom_commerce}</h2>
+        <p className={styles.shopSub}>Rejoignez le programme de fidélité et gagnez des points à chaque visite</p>
+      </div>
+
+      <div className={styles.body}>
+        {commercant.bonus_bienvenue > 0 && (
+          <div className={styles.bonusBanner}>
+            {commercant.bonus_bienvenue} points offerts dès votre inscription !
+          </div>
+        )}
+
+        {error && (
+          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 9, padding: '10px 14px', fontSize: 13, color: '#DC2626', fontWeight: 600, marginBottom: 14 }}>
+            {error}
+          </div>
+        )}
+
+        <div className={styles.field}>
+          <label>Prénom et nom</label>
+          <input type="text" placeholder="Marie Dupont" value={form.name} onChange={e => handle('name', e.target.value)} />
+        </div>
+        <div className={styles.field}>
+          <label>Email</label>
+          <input type="email" placeholder="marie@email.fr" value={form.email} onChange={e => handle('email', e.target.value)} />
+        </div>
+        <div className={styles.field}>
+          <label>Téléphone (optionnel)</label>
+          <input type="tel" placeholder="06 12 34 56 78" value={form.tel} onChange={e => handle('tel', e.target.value)} />
+        </div>
+
+        <div className={styles.checkRow}>
+          <input type="checkbox" id="accept" checked={form.accept} onChange={e => handle('accept', e.target.checked)} />
+          <label htmlFor="accept">J'accepte de recevoir des notifications de {commercant.nom_commerce}.</label>
+        </div>
+
+        <button className={styles.btnBlue} onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Inscription...' : 'Créer mon compte fidélité →'}
+        </button>
+
+        <p className={styles.legal}>Programme géré par FidèleApp · Données protégées conformément au RGPD</p>
       </div>
     </div>
   )
