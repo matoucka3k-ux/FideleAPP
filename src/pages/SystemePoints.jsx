@@ -53,7 +53,6 @@ export default function SystemePoints() {
 
       <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900 }}>
 
-        {/* RÈGLE DE BASE */}
         <div style={card}>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Règle de base</div>
           <div style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Points accordés par défaut pour chaque euro dépensé</div>
@@ -63,7 +62,6 @@ export default function SystemePoints() {
           </div>
         </div>
 
-        {/* CATÉGORIES */}
         <div style={card}>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Points par catégorie</div>
           <div style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Multipliez les points sur certaines catégories pour booster les ventes</div>
@@ -88,7 +86,6 @@ export default function SystemePoints() {
           <button onClick={addCat} style={{ width: '100%', marginTop: 10, background: 'none', border: '1.5px dashed #BFDBFE', color: '#2563EB', fontSize: 13, fontWeight: 600, padding: 10, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}>+ Ajouter une catégorie</button>
         </div>
 
-        {/* RÉCOMPENSES */}
         <div style={card}>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Récompenses</div>
           <div style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Ce que vos clients peuvent obtenir en échangeant leurs points</div>
@@ -113,7 +110,6 @@ export default function SystemePoints() {
           </div>
         </div>
 
-        {/* APERÇU */}
         <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', border: '1px solid #BFDBFE', borderRadius: 12, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#1D4ED8', marginBottom: 4 }}>Aperçu côté client</div>
@@ -129,6 +125,7 @@ export default function SystemePoints() {
             <div style={{ fontSize: 10, opacity: .75 }}>{firstReward ? `Encore ${Math.max(0, firstReward.pts - bonus)} pts → ${firstReward.name || 'première récompense'}` : '—'}</div>
           </div>
         </div>
+
       </div>
     </div>
   )
