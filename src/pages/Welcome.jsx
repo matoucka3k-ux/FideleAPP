@@ -6,37 +6,52 @@ import styles from './Welcome.module.css'
 
 export default function Welcome() {
   const navigate = useNavigate()
-  const { user, commercant, updateCommercant } = useAuth()
-  const [rewards, setRewards] = useState([
-    { name: 'Café offert', pts: 200 },
-    { name: 'Viennoiserie offerte', pts: 500 },
+  const { user, commercant } = useAuth()
+  const [articles, setArticles] = useState([
+    { nom: 'Baguette', points: 5 },
+    { nom: 'Viennoiserie', points: 10 },
   ])
-  const [base, setBase] = useState(1)
-  const [bonus, setBonus] = useState(100)
+  const [rewards, setRewards] = useState([
+    { nom: 'Café offert', points_requis: 50 },
+    { nom: 'Viennoiserie offerte', points_requis: 100 },
+  ])
+  const [bonus, setBonus] = useState(50)
   const [loading, setLoading] = useState(false)
-  const [nextId, setNextId] = useState(3)
 
-  const addReward = () => {
-    setRewards(r => [...r, { name: '', pts: 1000 }])
-    setNextId(n => n + 1)
-  }
+  const addArticle = () => setArticles(a => [...a, { nom: '', points: 10 }])
+  const updateArticle = (i, f, v) => setArticles(a => a.map((x, idx) => idx === i ? { ...x, [f]: v } : x))
+  const delArticle = (i) => setArticles(a => a.filter((_, idx) => idx !== i))
 
-  const updateReward = (i, field, val) =>
-    setRewards(r => r.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
+  const addReward = () => setRewards(r => [...r, { nom: '', points_requis: 100 }])
+  const updateReward = (i, f, v) => setRewards(r => r.map((x, idx) => idx === i ? { ...x, [f]: v } : x))
 
   const handleFinish = async () => {
     setLoading(true)
     try {
       const uid = user?.id
       if (uid) {
-        // Sauvegarder les règles de points
-        await updateCommercant({ points_par_euro: base, bonus_bienvenue: bonus })
+        await supabase.from('commercants').update({ bonus_bienvenue: bonus }).eq('id', uid)
 
-        // Sauvegarder les récompenses
-        const validRewards = rewards.filter(r => r.name.trim())
+        const validArticles = articles.filter(a => a.nom.trim())
+        if (validArticles.length > 0) {
+          await supabase.from('categories').insert(
+            validArticles.map(a => ({
+              commercant_id: uid,
+              nom: a.nom,
+              points_par_euro: a.points,
+              actif: true
+            }))
+          )
+        }
+
+        const validRewards = rewards.filter(r => r.nom.trim())
         if (validRewards.length > 0) {
           await supabase.from('recompenses').insert(
-            validRewards.map(r => ({ commercant_id: uid, nom: r.name, points_requis: r.pts }))
+            validRewards.map(r => ({
+              commercant_id: uid,
+              nom: r.nom,
+              points_requis: r.points_requis
+            }))
           )
         }
       }
@@ -50,7 +65,7 @@ export default function Welcome() {
   }
 
   const nomCommerce = commercant?.nom_commerce || 'votre commerce'
-  const prenomCommercant = commercant?.nom_complet?.split(' ')[0] || ''
+  const prenom = commercant?.nom_complet?.split(' ')[0] || ''
 
   return (
     <div className={styles.page}>
@@ -62,6 +77,7 @@ export default function Welcome() {
           FidèleApp
         </div>
       </nav>
+
       <div className={styles.content}>
         <div className={styles.inner}>
           <div className={styles.doneBadge}>
@@ -69,11 +85,11 @@ export default function Welcome() {
             Compte créé avec succès
           </div>
           <h1 className={styles.title}>
-            {prenomCommercant ? `Bienvenue ${prenomCommercant},` : 'Bienvenue,'}<br />
+            {prenom ? `Bienvenue ${prenom},` : 'Bienvenue,'}<br />
             votre programme est <span>prêt.</span>
           </h1>
           <p className={styles.sub}>
-            Plus qu'une étape : configurez vos règles de points. Ça prend 2 minutes — et vous pourrez tout ajuster depuis votre tableau de bord.
+            Configurez vos articles et récompenses en 2 minutes. Vous pourrez tout modifier depuis votre tableau de bord.
           </p>
 
           <div className={styles.etapes}>
@@ -91,7 +107,7 @@ export default function Welcome() {
               <div className={`${styles.eNum} ${styles.eNow}`}>2</div>
               <div className={styles.eBody}>
                 <div className={styles.eLabel}>Configurer vos points</div>
-                <div className={styles.eDesc}>Définissez ce que gagnent vos clients à chaque visite</div>
+                <div className={styles.eDesc}>Définissez vos articles et ce que gagnent vos clients</div>
               </div>
               <span className={`${styles.eTag} ${styles.tNow}`}>Maintenant</span>
             </div>
@@ -114,37 +130,70 @@ export default function Welcome() {
           </div>
 
           <div className={styles.configCard}>
-            <div className={styles.configTitle}>Configuration des points</div>
-            <div className={styles.configSub}>Les bases de votre programme — vous pourrez tout affiner dans "Système de points"</div>
-            <div className={styles.configGrid}>
-              <div>
-                <div className={styles.cLabel}>Points par euro dépensé</div>
-                <div className={styles.cInput}>
-                  <input type="number" value={base} min="1" onChange={e => setBase(+e.target.value)} />
-                  <span>pt par €</span>
-                </div>
-              </div>
-              <div>
-                <div className={styles.cLabel}>Bonus de bienvenue</div>
-                <div className={styles.cInput}>
-                  <input type="number" value={bonus} min="0" onChange={e => setBonus(+e.target.value)} />
-                  <span>points offerts</span>
-                </div>
-              </div>
+            <div className={styles.configTitle}>Configuration rapide</div>
+            <div className={styles.configSub}>Vous pourrez tout affiner dans "Système de points"</div>
+
+            {/* BONUS */}
+            <div className={styles.cLabel}>Bonus de bienvenue</div>
+            <div className={styles.cInput} style={{marginBottom: 20}}>
+              <input type="number" value={bonus} min="0" onChange={e => setBonus(+e.target.value)} />
+              <span>points offerts à l'inscription</span>
             </div>
+
+            {/* ARTICLES */}
+            <div className={styles.cLabel}>Articles & points gagnés</div>
+            <div style={{fontSize: 12, color: '#94A3B8', marginBottom: 10}}>Ex : Baguette = 5 pts · Coupe femme = 50 pts</div>
+            <div className={styles.rewardsList} style={{marginBottom: 8}}>
+              {articles.map((a, i) => (
+                <div key={i} className={styles.rewardRow}>
+                  <input
+                    type="text"
+                    value={a.nom}
+                    placeholder="Nom de l'article"
+                    onChange={e => updateArticle(i, 'nom', e.target.value)}
+                  />
+                  <span className={styles.sep}>=</span>
+                  <input
+                    type="number"
+                    value={a.points}
+                    min="1"
+                    onChange={e => updateArticle(i, 'points', +e.target.value)}
+                  />
+                  <span className={styles.unit}>pts</span>
+                  {articles.length > 1 && (
+                    <button onClick={() => delArticle(i)} style={{border:'none',background:'none',cursor:'pointer',color:'#CBD5E1',fontSize:14,fontWeight:700,padding:'0 4px'}}>✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button className={styles.btnAddReward} onClick={addArticle} style={{marginBottom: 20}}>
+              + Ajouter un article
+            </button>
+
+            {/* RÉCOMPENSES */}
             <div className={styles.cLabel}>Récompenses</div>
             <div className={styles.rewardsList}>
               {rewards.map((r, i) => (
                 <div key={i} className={styles.rewardRow}>
-                  <input type="text" value={r.name} placeholder="Nom de la récompense" onChange={e => updateReward(i, 'name', e.target.value)} />
+                  <input
+                    type="text"
+                    value={r.nom}
+                    placeholder="Ex : Café offert"
+                    onChange={e => updateReward(i, 'nom', e.target.value)}
+                  />
                   <span className={styles.sep}>à</span>
-                  <input type="number" value={r.pts} min="1" onChange={e => updateReward(i, 'pts', +e.target.value)} />
+                  <input
+                    type="number"
+                    value={r.points_requis}
+                    min="1"
+                    onChange={e => updateReward(i, 'points_requis', +e.target.value)}
+                  />
                   <span className={styles.unit}>pts</span>
                 </div>
               ))}
             </div>
             <button className={styles.btnAddReward} onClick={addReward}>+ Ajouter une récompense</button>
-            <p className={styles.configHint}>Vous pouvez en ajouter autant que vous voulez depuis "Système de points"</p>
+            <p className={styles.configHint}>Tout est modifiable depuis "Système de points"</p>
           </div>
 
           <button className={styles.btnBlue} onClick={handleFinish} disabled={loading}>
