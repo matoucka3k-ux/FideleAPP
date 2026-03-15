@@ -1,0 +1,17 @@
+.layout { display: flex; min-height: 100vh; background: var(--bg); }
+.sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 50; }
+.logo { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 800; color: var(--text); }
+.logoMark { width: 28px; height: 28px; background: var(--blue); border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logoMark svg { width: 14px; height: 14px; }
+.nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+.navSection { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #CBD5E1; padding: 8px 10px 4px; }
+.navItem { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--text-muted); font-size: 13px; font-weight: 500; text-decoration: none; margin-bottom: 2px; transition: all .15s; }
+.navItem:hover { background: var(--bg); color: var(--text); }
+.navItem.active { background: var(--blue-light); color: var(--blue); font-weight: 700; }
+.navIcon { width: 15px; height: 15px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.navIcon svg { width: 15px; height: 15px; }
+.user { padding: 10px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: #DBEAFE; color: var(--blue); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.userName { font-size: 13px; font-weight: 600; color: var(--text); }
+.userPlan { font-size: 11px; color: var(--text-hint); }
+.main { flex: 1; margin-left: 220px; min-height: 100vh; }

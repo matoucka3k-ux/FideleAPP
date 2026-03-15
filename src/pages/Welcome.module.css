@@ -1,0 +1,55 @@
+.page { min-height: 100vh; background: #F8FAFF; }
+.nav { background: #fff; border-bottom: 1px solid #E8F0FE; padding: 16px 48px; display: flex; align-items: center; }
+.logo { font-size: 17px; font-weight: 800; color: #0F172A; display: flex; align-items: center; gap: 9px; }
+.logoMark { width: 28px; height: 28px; background: #2563EB; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logoMark svg { width: 14px; height: 14px; }
+.content { padding: 56px 24px 80px; display: flex; justify-content: center; }
+.inner { width: 100%; max-width: 580px; }
+.doneBadge { display: inline-flex; align-items: center; gap: 7px; background: #F0FDF4; color: #16A34A; font-size: 12px; font-weight: 700; padding: 5px 14px; border-radius: 999px; border: 1px solid #BBF7D0; margin-bottom: 22px; }
+.doneBadge svg { width: 12px; height: 12px; flex-shrink: 0; }
+.title { font-size: 34px; font-weight: 800; letter-spacing: -1.5px; color: #0F172A; margin-bottom: 10px; line-height: 1.1; }
+.title span { color: #2563EB; }
+.sub { font-size: 15px; color: #64748B; line-height: 1.75; margin-bottom: 28px; }
+
+/* ÉTAPES */
+.etapes { background: #fff; border: 1px solid #E8F0FE; border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+.etape { display: flex; align-items: center; gap: 14px; padding: 15px 20px; border-bottom: 1px solid #F8FAFF; }
+.etape:last-child { border-bottom: none; }
+.eNum { width: 30px; height: 30px; border-radius: 50%; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.eDone { background: #F0FDF4; color: #16A34A; }
+.eNow { background: #2563EB; color: #fff; }
+.eLater { background: #F8FAFF; color: #CBD5E1; }
+.eBody { flex: 1; }
+.eLabel { font-size: 13px; font-weight: 700; color: #0F172A; margin-bottom: 1px; }
+.eLabel.dim { color: #CBD5E1; }
+.eDesc { font-size: 12px; color: #94A3B8; }
+.eTag { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
+.tDone { background: #F0FDF4; color: #16A34A; }
+.tNow { background: #EFF6FF; color: #2563EB; }
+.tLater { background: #F8FAFF; color: #94A3B8; }
+
+/* CONFIG */
+.configCard { background: #fff; border: 1px solid #E8F0FE; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+.configTitle { font-size: 15px; font-weight: 800; color: #0F172A; margin-bottom: 4px; }
+.configSub { font-size: 13px; color: #64748B; margin-bottom: 20px; line-height: 1.6; }
+.configGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+.cLabel { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.cInput { display: flex; align-items: center; gap: 8px; background: #F8FAFF; border: 1.5px solid #E2E8F0; border-radius: 9px; padding: 10px 14px; transition: border-color .2s; }
+.cInput:focus-within { border-color: #93C5FD; background: #fff; }
+.cInput input { background: none; border: none; font-size: 20px; font-weight: 800; color: #0F172A; width: 56px; font-family: inherit; outline: none; }
+.cInput span { font-size: 13px; color: #94A3B8; white-space: nowrap; }
+.rewardsList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; margin-top: 6px; }
+.rewardRow { display: flex; align-items: center; gap: 8px; background: #F8FAFF; border: 1.5px solid #E2E8F0; border-radius: 9px; padding: 10px 14px; transition: border-color .2s; }
+.rewardRow:focus-within { border-color: #93C5FD; background: #fff; }
+.rewardRow input[type=text] { background: none; border: none; font-size: 14px; font-weight: 600; color: #0F172A; flex: 1; font-family: inherit; outline: none; min-width: 0; }
+.sep { font-size: 12px; color: #CBD5E1; flex-shrink: 0; }
+.rewardRow input[type=number] { background: none; border: none; font-size: 14px; font-weight: 700; color: #2563EB; width: 52px; font-family: inherit; outline: none; text-align: right; }
+.unit { font-size: 12px; color: #94A3B8; flex-shrink: 0; }
+.btnAddReward { background: none; border: 1.5px dashed #E2E8F0; color: #94A3B8; font-size: 13px; font-weight: 600; padding: 9px; border-radius: 9px; cursor: pointer; font-family: inherit; width: 100%; transition: all .2s; }
+.btnAddReward:hover { border-color: #93C5FD; color: #2563EB; }
+.configHint { font-size: 12px; color: #CBD5E1; margin-top: 8px; text-align: center; }
+
+.btnBlue { background: #2563EB; color: #fff; border: none; font-size: 14px; font-weight: 700; padding: 14px; border-radius: 9px; cursor: pointer; font-family: inherit; width: 100%; transition: all .2s; }
+.btnBlue:hover { background: #1D4ED8; }
+.skip { display: block; text-align: center; font-size: 13px; color: #94A3B8; cursor: pointer; margin-top: 12px; }
+.skip:hover { color: #64748B; text-decoration: underline; }
