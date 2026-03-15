@@ -2,127 +2,172 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/AuthContext.jsx'
 
-const initCats = [
-  { id: 1, name: 'Pains & baguettes', pts: 1, active: true },
-  { id: 2, name: 'Viennoiseries', pts: 2, active: true },
-  { id: 3, name: 'Pâtisseries', pts: 3, active: false },
-]
-
-const initRewards = [
-  { id: 1, name: 'Café offert', pts: 200 },
-  { id: 2, name: 'Viennoiserie', pts: 500 },
-  { id: 3, name: 'Réduction 10%', pts: 1000 },
-]
-
 const card = { background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '22px 24px' }
-const field = { display: 'flex', flexDirection: 'column', gap: 6 }
-const label = { fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '.04em' }
-const inputStyle = { border: '1.5px solid #E2E8F0', borderRadius: 9, padding: '10px 14px', fontSize: 18, fontWeight: 800, color: '#0F172A', width: 80, fontFamily: 'inherit', outline: 'none' }
 
 export default function SystemePoints() {
-  const [cats, setCats] = useState(initCats)
-  const [rewards, setRewards] = useState(initRewards)
-  const [base, setBase] = useState(1)
-  const [bonus, setBonus] = useState(100)
+  const { user } = useAuth()
+  const [produits, setProduits] = useState([
+    { id: 1, nom: 'Baguette', points: 5, actif: true },
+    { id: 2, nom: 'Viennoiserie', points: 10, actif: true },
+    { id: 3, nom: 'Pâtisserie', points: 20, actif: true },
+  ])
+  const [rewards, setRewards] = useState([
+    { id: 1, nom: 'Café offert', points_requis: 50 },
+    { id: 2, nom: 'Viennoiserie offerte', points_requis: 100 },
+    { id: 3, nom: 'Réduction 10%', points_requis: 200 },
+  ])
+  const [bonus, setBonus] = useState(50)
   const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [nextId, setNextId] = useState(10)
 
-  const save = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+  useEffect(() => { if (user) loadData() }, [user])
 
-  const addCat = () => { setCats(c => [...c, { id: nextId, name: '', pts: 1, active: true }]); setNextId(n => n + 1) }
-  const delCat = (id) => setCats(c => c.filter(x => x.id !== id))
-  const updateCat = (id, field, val) => setCats(c => c.map(x => x.id === id ? { ...x, [field]: val } : x))
+  async function loadData() {
+    const [catsRes, rewsRes, commRes] = await Promise.all([
+      supabase.from('categories').select('*').eq('commercant_id', user.id).order('created_at'),
+      supabase.from('recompenses').select('*').eq('commercant_id', user.id).order('points_requis'),
+      supabase.from('commercants').select('bonus_bienvenue').eq('id', user.id).single(),
+    ])
+    if (catsRes.data?.length > 0) setProduits(catsRes.data.map(c => ({ id: c.id, nom: c.nom, points: c.points_par_euro, actif: c.actif })))
+    if (rewsRes.data?.length > 0) setRewards(rewsRes.data.map(r => ({ id: r.id, nom: r.nom, points_requis: r.points_requis })))
+    if (commRes.data) setBonus(commRes.data.bonus_bienvenue)
+  }
 
-  const addReward = () => { setRewards(r => [...r, { id: nextId, name: '', pts: 500 }]); setNextId(n => n + 1) }
+  const save = async () => {
+    setLoading(true)
+    try {
+      await supabase.from('commercants').update({ bonus_bienvenue: bonus }).eq('id', user.id)
+      await supabase.from('categories').delete().eq('commercant_id', user.id)
+      const validProduits = produits.filter(p => p.nom.trim())
+      if (validProduits.length > 0) {
+        await supabase.from('categories').insert(validProduits.map(p => ({ commercant_id: user.id, nom: p.nom, points_par_euro: p.points, actif: p.actif })))
+      }
+      await supabase.from('recompenses').delete().eq('commercant_id', user.id)
+      const validRews = rewards.filter(r => r.nom.trim())
+      if (validRews.length > 0) {
+        await supabase.from('recompenses').insert(validRews.map(r => ({ commercant_id: user.id, nom: r.nom, points_requis: r.points_requis })))
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
+  }
+
+  const addProduit = () => { setProduits(p => [...p, { id: nextId, nom: '', points: 10, actif: true }]); setNextId(n => n + 1) }
+  const delProduit = (id) => setProduits(p => p.filter(x => x.id !== id))
+  const updateProduit = (id, f, v) => setProduits(p => p.map(x => x.id === id ? { ...x, [f]: v } : x))
+  const addReward = () => { setRewards(r => [...r, { id: nextId, nom: '', points_requis: 100 }]); setNextId(n => n + 1) }
   const delReward = (id) => setRewards(r => r.filter(x => x.id !== id))
-  const updateReward = (id, field, val) => setRewards(r => r.map(x => x.id === id ? { ...x, [field]: val } : x))
-
-  const firstReward = [...rewards].sort((a, b) => a.pts - b.pts)[0]
+  const updateReward = (id, f, v) => setRewards(r => r.map(x => x.id === id ? { ...x, [f]: v } : x))
+  const firstReward = [...rewards].sort((a, b) => a.points_requis - b.points_requis)[0]
 
   return (
     <div style={{ minHeight: '100vh', background: '#F8FAFF' }}>
       <div style={{ background: '#fff', borderBottom: '1px solid #E8F0FE', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#0F172A' }}>Système de points</div>
-          <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 2 }}>Définissez vos règles de points et récompenses</div>
+          <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 2 }}>Définissez vos produits et récompenses</div>
         </div>
-        <button onClick={save} style={{ background: saved ? '#16A34A' : '#2563EB', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: '9px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
-          {saved ? '✓ Enregistré' : 'Enregistrer'}
+        <button onClick={save} disabled={loading} style={{ background: saved ? '#16A34A' : '#2563EB', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: '9px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+          {loading ? 'Sauvegarde...' : saved ? '✓ Enregistré' : 'Enregistrer'}
         </button>
       </div>
 
       <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900 }}>
 
+        {/* BONUS */}
         <div style={card}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Règle de base</div>
-          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Points accordés par défaut pour chaque euro dépensé</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div style={field}><label style={label}>Points par euro dépensé</label><div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 9, padding: '10px 14px' }}><input type="number" min="1" value={base} onChange={e => setBase(+e.target.value)} style={{ ...inputStyle, border: 'none', background: 'none', padding: 0 }} /><span style={{ fontSize: 13, color: '#94A3B8' }}>point(s) par €</span></div></div>
-            <div style={field}><label style={label}>Bonus de bienvenue</label><div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 9, padding: '10px 14px' }}><input type="number" min="0" value={bonus} onChange={e => setBonus(+e.target.value)} style={{ ...inputStyle, border: 'none', background: 'none', padding: 0 }} /><span style={{ fontSize: 13, color: '#94A3B8' }}>points offerts</span></div></div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Bonus de bienvenue</div>
+          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Points offerts automatiquement à chaque nouveau client inscrit</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 9, padding: '10px 14px', width: 'fit-content' }}>
+            <input type="number" min="0" value={bonus} onChange={e => setBonus(+e.target.value)} style={{ border: 'none', background: 'none', fontSize: 22, fontWeight: 800, color: '#0F172A', width: 70, fontFamily: 'inherit', outline: 'none' }} />
+            <span style={{ fontSize: 13, color: '#94A3B8' }}>points offerts à l'inscription</span>
           </div>
         </div>
 
+        {/* PRODUITS */}
         <div style={card}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Points par catégorie</div>
-          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Multipliez les points sur certaines catégories pour booster les ventes</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {cats.map(cat => (
-              <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 100px 36px', gap: 10, alignItems: 'center', background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '12px 14px' }}>
-                <input value={cat.name} onChange={e => updateCat(cat.id, 'name', e.target.value)} placeholder="Nom de la catégorie" style={{ border: 'none', background: 'none', fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'inherit', outline: 'none' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 7, padding: '7px 10px' }}>
-                  <input type="number" min="1" max="10" value={cat.pts} onChange={e => updateCat(cat.id, 'pts', +e.target.value)} style={{ border: 'none', background: 'none', fontSize: 14, fontWeight: 700, color: '#2563EB', width: 36, fontFamily: 'inherit', outline: 'none' }} />
-                  <span style={{ fontSize: 12, color: '#94A3B8', whiteSpace: 'nowrap' }}>pts par €</span>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Produits & catégories</div>
+          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 6, lineHeight: 1.6 }}>Définissez combien de points chaque produit rapporte à votre client</div>
+          <div style={{ fontSize: 12, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '8px 12px', marginBottom: 20, display: 'inline-block' }}>
+            Ex : "Baguette = 5 pts", "Menu du jour = 30 pts", "Coupe femme = 50 pts"
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 80px 36px', gap: 10, padding: '0 14px', marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Produit / Catégorie</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Points</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Actif</span>
+            <span />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {produits.map(p => (
+              <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 80px 36px', gap: 10, alignItems: 'center', background: p.actif ? '#F8FAFF' : '#FAFAFA', border: `1.5px solid ${p.actif ? '#E2E8F0' : '#F1F5F9'}`, borderRadius: 10, padding: '11px 14px', opacity: p.actif ? 1 : 0.55 }}>
+                <input value={p.nom} onChange={e => updateProduit(p.id, 'nom', e.target.value)} placeholder="Ex : Baguette, Menu midi, Coupe..." style={{ border: 'none', background: 'none', fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'inherit', outline: 'none', width: '100%' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 7, padding: '6px 10px' }}>
+                  <input type="number" min="1" value={p.points} onChange={e => updateProduit(p.id, 'points', +e.target.value)} style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 800, color: '#2563EB', width: 44, fontFamily: 'inherit', outline: 'none' }} />
+                  <span style={{ fontSize: 11, color: '#94A3B8' }}>pts</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: '#94A3B8' }}>Actif</span>
-                  <button onClick={() => updateCat(cat.id, 'active', !cat.active)} style={{ width: 36, height: 20, borderRadius: 999, border: 'none', cursor: 'pointer', background: cat.active ? '#2563EB' : '#E2E8F0', position: 'relative', flexShrink: 0 }}>
-                    <span style={{ position: 'absolute', top: 2, left: cat.active ? 18 : 2, width: 16, height: 16, background: '#fff', borderRadius: '50%', transition: 'left .2s' }} />
-                  </button>
-                </div>
-                <button onClick={() => delCat(cat.id)} style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#DC2626', fontSize: 14, fontWeight: 700 }}>✕</button>
+                <button onClick={() => updateProduit(p.id, 'actif', !p.actif)} style={{ width: 38, height: 22, borderRadius: 999, border: 'none', cursor: 'pointer', background: p.actif ? '#2563EB' : '#E2E8F0', position: 'relative', padding: 0 }}>
+                  <span style={{ position: 'absolute', top: 2, left: p.actif ? 18 : 2, width: 18, height: 18, background: '#fff', borderRadius: '50%', transition: 'left .2s', display: 'block' }} />
+                </button>
+                <button onClick={() => delProduit(p.id)} style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#CBD5E1', fontSize: 16, fontWeight: 700 }}>✕</button>
               </div>
             ))}
           </div>
-          <button onClick={addCat} style={{ width: '100%', marginTop: 10, background: 'none', border: '1.5px dashed #BFDBFE', color: '#2563EB', fontSize: 13, fontWeight: 600, padding: 10, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}>+ Ajouter une catégorie</button>
+          <button onClick={addProduit} style={{ width: '100%', marginTop: 10, background: 'none', border: '1.5px dashed #BFDBFE', color: '#2563EB', fontSize: 13, fontWeight: 600, padding: 10, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
+            + Ajouter un produit ou une catégorie
+          </button>
         </div>
 
+        {/* RÉCOMPENSES */}
         <div style={card}>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Récompenses</div>
-          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Ce que vos clients peuvent obtenir en échangeant leurs points</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 1.6 }}>Ce que vos clients obtiennent en échangeant leurs points</div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 170px 36px', gap: 10, padding: '0 14px', marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Récompense</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Points nécessaires</span>
+            <span />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {rewards.map(r => (
-              <div key={r.id} style={{ background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: 16, position: 'relative' }}>
-                <button onClick={() => delReward(r.id)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', fontSize: 13, fontWeight: 700 }}>✕</button>
-                <div style={{ width: 40, height: 40, background: '#EFF6FF', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, fontSize: 18 }}>🎁</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Nom</div>
-                <input value={r.name} onChange={e => updateReward(r.id, 'name', e.target.value)} placeholder="Ex : Café offert" style={{ width: '100%', border: '1px solid #E2E8F0', borderRadius: 7, padding: '7px 10px', fontSize: 13, fontFamily: 'inherit', color: '#0F172A', outline: 'none', marginBottom: 10 }} />
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Points nécessaires</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #E2E8F0', borderRadius: 7, padding: '7px 10px', background: '#fff' }}>
-                  <input type="number" value={r.pts} onChange={e => updateReward(r.id, 'pts', +e.target.value)} style={{ border: 'none', background: 'none', fontSize: 14, fontWeight: 800, color: '#2563EB', width: 60, fontFamily: 'inherit', outline: 'none' }} />
-                  <span style={{ fontSize: 12, color: '#94A3B8' }}>points</span>
+              <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '1fr 170px 36px', gap: 10, alignItems: 'center', background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '11px 14px' }}>
+                <input value={r.nom} onChange={e => updateReward(r.id, 'nom', e.target.value)} placeholder="Ex : Café offert, Remise 5€..." style={{ border: 'none', background: 'none', fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'inherit', outline: 'none', width: '100%' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 7, padding: '6px 10px' }}>
+                  <input type="number" min="1" value={r.points_requis} onChange={e => updateReward(r.id, 'points_requis', +e.target.value)} style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 800, color: '#2563EB', width: 60, fontFamily: 'inherit', outline: 'none' }} />
+                  <span style={{ fontSize: 11, color: '#94A3B8' }}>points</span>
                 </div>
+                <button onClick={() => delReward(r.id)} style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#CBD5E1', fontSize: 16, fontWeight: 700 }}>✕</button>
               </div>
             ))}
-            <div onClick={addReward} style={{ background: 'none', border: '1.5px dashed #BFDBFE', borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', minHeight: 160 }}>
-              <span style={{ fontSize: 24, color: '#BFDBFE' }}>+</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#CBD5E1' }}>Ajouter une récompense</span>
-            </div>
           </div>
+          <button onClick={addReward} style={{ width: '100%', marginTop: 10, background: 'none', border: '1.5px dashed #BFDBFE', color: '#2563EB', fontSize: 13, fontWeight: 600, padding: 10, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
+            + Ajouter une récompense
+          </button>
         </div>
 
-        <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', border: '1px solid #BFDBFE', borderRadius: 12, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
+        {/* APERÇU */}
+        <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', border: '1px solid #BFDBFE', borderRadius: 12, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#1D4ED8', marginBottom: 4 }}>Aperçu côté client</div>
-            <div style={{ fontSize: 13, color: '#3B82F6', marginBottom: 8 }}>{base} point{base > 1 ? 's' : ''} par euro · Bonus bienvenue : {bonus} pts</div>
-            {[...rewards].sort((a, b) => a.pts - b.pts).slice(0, 3).map(r => (
-              <div key={r.id} style={{ fontSize: 12, fontWeight: 600, color: '#1D4ED8', marginBottom: 3 }}>{r.name || 'Récompense'} — {r.pts} pts</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1D4ED8', marginBottom: 8 }}>Aperçu côté client</div>
+            {produits.filter(p => p.actif && p.nom).slice(0, 4).map(p => (
+              <div key={p.id} style={{ fontSize: 13, color: '#1E40AF', fontWeight: 500, marginBottom: 3 }}>
+                <span style={{ fontWeight: 700 }}>{p.nom}</span> → +{p.points} pts
+              </div>
             ))}
           </div>
-          <div style={{ background: '#2563EB', borderRadius: 10, padding: '14px 18px', color: '#fff', minWidth: 200 }}>
-            <div style={{ fontSize: 10, opacity: .7, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 4 }}>Vos points</div>
-            <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: -1, marginBottom: 8 }}>{bonus}</div>
-            <div style={{ background: 'rgba(255,255,255,.2)', borderRadius: 999, height: 4, marginBottom: 4 }}><div style={{ background: '#fff', borderRadius: 999, height: 4, width: firstReward ? `${Math.min(100, (bonus / firstReward.pts) * 100)}%` : '0%' }} /></div>
-            <div style={{ fontSize: 10, opacity: .75 }}>{firstReward ? `Encore ${Math.max(0, firstReward.pts - bonus)} pts → ${firstReward.name || 'première récompense'}` : '—'}</div>
+          <div style={{ background: '#2563EB', borderRadius: 12, padding: '16px 20px', color: '#fff', minWidth: 200 }}>
+            <div style={{ fontSize: 10, opacity: .7, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Exemple client</div>
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1, marginBottom: 8 }}>{bonus} pts</div>
+            <div style={{ background: 'rgba(255,255,255,.2)', borderRadius: 999, height: 4, marginBottom: 5 }}>
+              <div style={{ background: '#fff', borderRadius: 999, height: 4, width: firstReward ? `${Math.min(100, (bonus / firstReward.points_requis) * 100)}%` : '0%' }} />
+            </div>
+            <div style={{ fontSize: 11, opacity: .75 }}>
+              {firstReward ? `Encore ${Math.max(0, firstReward.points_requis - bonus)} pts → ${firstReward.nom}` : '—'}
+            </div>
           </div>
         </div>
 
