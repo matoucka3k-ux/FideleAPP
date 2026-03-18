@@ -7,7 +7,7 @@ export default function Welcome() {
   const navigate = useNavigate()
   const { user, commercant } = useAuth()
   const [step, setStep] = useState('bienvenue')
-  const [bonus, setBonus] = useState(50)
+  const [bonus, setBonus] = useState(0)
   const [articles, setArticles] = useState([{ id: 1, nom: '', points: '' }])
   const [rewards, setRewards] = useState([{ id: 1, nom: '', points_requis: '' }])
   const [nextId, setNextId] = useState(10)
@@ -75,7 +75,6 @@ export default function Welcome() {
           </div>
           <span style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>FidèleApp</span>
         </div>
-        {/* Barre de progression */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {['Bienvenue', 'Système de points', 'Récompenses'].map((label, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
