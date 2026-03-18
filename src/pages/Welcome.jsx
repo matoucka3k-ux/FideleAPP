@@ -6,7 +6,7 @@ import { useAuth } from '../lib/AuthContext.jsx'
 export default function Welcome() {
   const navigate = useNavigate()
   const { user, commercant } = useAuth()
-  const [step, setStep] = useState('bienvenue') // bienvenue | points | recompenses | done
+  const [step, setStep] = useState('bienvenue')
   const [bonus, setBonus] = useState(50)
   const [articles, setArticles] = useState([{ id: 1, nom: '', points: '' }])
   const [rewards, setRewards] = useState([{ id: 1, nom: '', points_requis: '' }])
@@ -61,9 +61,6 @@ export default function Welcome() {
     }
   }
 
-  const inp = { border: '1.5px solid #E2E8F0', borderRadius: 8, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit', color: '#0F172A', outline: 'none', background: '#fff', width: '100%' }
-
-  // Barre de progression
   const steps = ['bienvenue', 'points', 'recompenses']
   const stepIndex = steps.indexOf(step)
 
@@ -108,10 +105,10 @@ export default function Welcome() {
             <div style={{ textAlign: 'center', marginBottom: 40 }}>
               <div style={{ fontSize: 40, marginBottom: 16 }}>🎉</div>
               <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0F172A', marginBottom: 10, letterSpacing: -0.5 }}>
-                Bienvenue {prenom} !
+                Bienvenue {prenom} — {nomCommerce} !
               </h1>
               <p style={{ fontSize: 15, color: '#64748B', lineHeight: 1.7, maxWidth: 480, margin: '0 auto' }}>
-                Votre compte <strong>{nomCommerce}</strong> est prêt. Configurons maintenant votre programme de fidélité en 2 étapes rapides.
+                Votre compte est prêt. Configurons maintenant votre programme de fidélité en 2 étapes rapides.
               </p>
             </div>
 
