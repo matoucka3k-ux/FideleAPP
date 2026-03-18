@@ -6,36 +6,28 @@ const card = { background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12
 
 export default function SystemePoints() {
   const { user } = useAuth()
-  const [articles, setArticles] = useState([
-    { id: 1, nom: 'Baguette', points: 5, actif: true },
-    { id: 2, nom: 'Croissant', points: 10, actif: true },
-    { id: 3, nom: 'Pâtisserie', points: 20, actif: true },
-  ])
-  const [rewards, setRewards] = useState([
-    { id: 1, nom: 'Café offert', points_requis: 50 },
-    { id: 2, nom: 'Viennoiserie offerte', points_requis: 100 },
-    { id: 3, nom: 'Réduction 10%', points_requis: 200 },
-  ])
+  const [articles, setArticles] = useState([])
+  const [rewards, setRewards] = useState([])
   const [bonus, setBonus] = useState(50)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(true)
   const [nextId, setNextId] = useState(10)
 
   useEffect(() => { if (user) loadData() }, [user])
 
   async function loadData() {
+    setDataLoading(true)
     const [catsRes, rewsRes, commRes] = await Promise.all([
       supabase.from('categories').select('*').eq('commercant_id', user.id).order('created_at'),
       supabase.from('recompenses').select('*').eq('commercant_id', user.id).order('points_requis'),
       supabase.from('commercants').select('bonus_bienvenue').eq('id', user.id).single(),
     ])
-    if (catsRes.data?.length > 0) {
-      setArticles(catsRes.data.map(c => ({ id: c.id, nom: c.nom, points: c.points_par_euro, actif: c.actif })))
-    }
-    if (rewsRes.data?.length > 0) {
-      setRewards(rewsRes.data.map(r => ({ id: r.id, nom: r.nom, points_requis: r.points_requis })))
-    }
+    // On remplace toujours par ce qui vient de Supabase, même si vide
+    setArticles(catsRes.data ? catsRes.data.map(c => ({ id: c.id, nom: c.nom, points: c.points_par_euro, actif: c.actif })) : [])
+    setRewards(rewsRes.data ? rewsRes.data.map(r => ({ id: r.id, nom: r.nom, points_requis: r.points_requis })) : [])
     if (commRes.data) setBonus(commRes.data.bonus_bienvenue)
+    setDataLoading(false)
   }
 
   async function save() {
@@ -68,6 +60,7 @@ export default function SystemePoints() {
         )
       }
 
+      await loadData() // ← recharge depuis Supabase après sauvegarde
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (e) {
@@ -93,6 +86,12 @@ export default function SystemePoints() {
   const updateReward = (id, f, v) => setRewards(r => r.map(x => x.id === id ? { ...x, [f]: v } : x))
 
   const firstReward = [...rewards].sort((a, b) => a.points_requis - b.points_requis)[0]
+
+  if (dataLoading) return (
+    <div style={{ minHeight: '100vh', background: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontSize: 14, color: '#94A3B8', fontWeight: 600 }}>Chargement...</div>
+    </div>
+  )
 
   return (
     <div style={{ minHeight: '100vh', background: '#F8FAFF' }}>
@@ -134,7 +133,6 @@ export default function SystemePoints() {
             Ex : Baguette = 5 pts · Coupe femme = 50 pts · Menu du jour = 30 pts
           </div>
 
-          {/* EN-TÊTES */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 80px 36px', gap: 10, padding: '0 14px', marginBottom: 8 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Article / Catégorie</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Points gagnés</span>
@@ -143,6 +141,11 @@ export default function SystemePoints() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {articles.length === 0 && (
+              <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', padding: '16px 0' }}>
+                Aucun article encore. Ajoutez-en un ci-dessous.
+              </div>
+            )}
             {articles.map(a => (
               <div key={a.id} style={{
                 display: 'grid', gridTemplateColumns: '1fr 150px 80px 36px', gap: 10, alignItems: 'center',
@@ -196,6 +199,11 @@ export default function SystemePoints() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {rewards.length === 0 && (
+              <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', padding: '16px 0' }}>
+                Aucune récompense encore. Ajoutez-en une ci-dessous.
+              </div>
+            )}
             {rewards.map(r => (
               <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '1fr 180px 36px', gap: 10, alignItems: 'center', background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '11px 14px' }}>
                 <input
@@ -234,6 +242,9 @@ export default function SystemePoints() {
                 <span style={{ fontWeight: 700 }}>{a.nom}</span> → +{a.points} pts
               </div>
             ))}
+            {articles.filter(a => a.actif && a.nom).length === 0 && (
+              <div style={{ fontSize: 13, color: '#93C5FD' }}>Ajoutez des articles pour voir l'aperçu</div>
+            )}
           </div>
           <div style={{ background: '#2563EB', borderRadius: 12, padding: '16px 20px', color: '#fff', minWidth: 200 }}>
             <div style={{ fontSize: 10, opacity: .7, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Exemple client</div>
