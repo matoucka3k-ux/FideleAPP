@@ -14,7 +14,7 @@ const Tip = ({ active, payload, label }) => active && payload?.length ? (
 const PERIODS = ['Jour', 'Semaine', 'Mois']
 
 const typeBadgeStyle = (type) => {
-  if (type === 'achat') return { background: '#EFF6FF', color: '#1D4ED8' }
+  if (type === 'achat') return { background: '#F0FDF4', color: '#16A34A' }
   if (type === 'echange') return { background: '#FEF9C3', color: '#854D0E' }
   if (type === 'bonus_bienvenue') return { background: '#EEF2FF', color: '#4338CA' }
   return { background: '#F0FDF4', color: '#166534' }
@@ -23,7 +23,7 @@ const typeBadgeStyle = (type) => {
 const typeLabel = (type) => {
   if (type === 'achat') return 'Achat'
   if (type === 'echange') return 'Échange'
-  if (type === 'bonus_bienvenue') return 'bonus_bienvenue'
+  if (type === 'bonus_bienvenue') return 'Bonus bienvenue'
   return type
 }
 
@@ -278,10 +278,7 @@ export default function Dashboard() {
                             </span>
                           </td>
                           <td>
-                            <span className={styles.ptsBadge} style={{
-                              background: t.points > 0 ? '#DCFCE7' : '#FEE2E2',
-                              color: t.points > 0 ? '#16A34A' : '#DC2626'
-                            }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: t.points > 0 ? '#16A34A' : '#DC2626' }}>
                               {t.points > 0 ? `+${t.points}` : t.points} pts
                             </span>
                           </td>
