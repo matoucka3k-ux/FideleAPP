@@ -7,7 +7,6 @@ import styles from './Encaisser.module.css'
 export default function Encaisser() {
   const { user, commercant } = useAuth()
   const [state, setState] = useState('home')
-  const [tab, setTab] = useState('qr')
   const [search, setSearch] = useState('')
   const [clients, setClients] = useState([])
   const [filtered, setFiltered] = useState([])
@@ -181,9 +180,13 @@ export default function Encaisser() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.topbar}><div><div className={styles.title}>Encaisser</div><div className={styles.sub}>QR Code boutique + recherche client</div></div></div>
+      <div className={styles.topbar}>
+        <div><div className={styles.title}>Encaisser</div><div className={styles.sub}>QR Code boutique + recherche client</div></div>
+      </div>
       <div className={styles.content}>
         <div className={styles.twoCol}>
+
+          {/* QR CODE BOUTIQUE — inchangé */}
           <div className={`${styles.card} ${styles.qrCard}`}>
             <div className={styles.qrBadge}>QR Code de votre boutique</div>
             <div className={styles.qrTitle}>Affichage en boutique — Inscription clients</div>
@@ -202,53 +205,33 @@ export default function Encaisser() {
             </div>
           </div>
 
+          {/* RECHERCHE CLIENT — scanner supprimé */}
           <div className={styles.card}>
             <div className={styles.cardTitle} style={{marginBottom:4}}>Trouver un client</div>
-            <div className={styles.cardSub} style={{marginBottom:14}}>Scannez le QR code de votre client ou recherchez-le par nom</div>
-            <div className={styles.tabs}>
-              <button className={`${styles.tab} ${tab==='qr'?styles.tabActive:''}`} onClick={()=>setTab('qr')}>Scanner le QR client</button>
-              <button className={`${styles.tab} ${tab==='search'?styles.tabActive:''}`} onClick={()=>setTab('search')}>Rechercher par nom</button>
+            <div className={styles.cardSub} style={{marginBottom:14}}>Recherchez votre client par nom ou téléphone</div>
+            <div className={styles.searchWrap}>
+              <input
+                className={styles.searchInput}
+                placeholder="Nom du client, téléphone..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
             </div>
-            {tab === 'qr' ? (
-              <div>
-                <div className={styles.scannerWrap}>
-                  <div className={styles.scannerHeader}><span>Pointez la caméra vers le QR code du client</span></div>
-                  <div className={styles.scannerBody}>
-                    <div className={styles.scannerFrame}>
-                      <div className={`${styles.corner} ${styles.cornerTL}`}/>
-                      <div className={`${styles.corner} ${styles.cornerTR}`}/>
-                      <div className={`${styles.corner} ${styles.cornerBL}`}/>
-                      <div className={`${styles.corner} ${styles.cornerBR}`}/>
-                      <div className={styles.scanLine}/>
-                    </div>
-                    <div className={styles.scanHint}>En attente du QR code client...</div>
-                    {clients.length > 0 && (
-                      <button className={styles.btnDemoScan} onClick={() => selectClient(clients[0])}>
-                        Simuler un scan ({clients[0]?.nom_complet})
-                      </button>
-                    )}
+            <div className={styles.clientList}>
+              {filtered.length === 0
+                ? <div style={{fontSize:13,color:'#CBD5E1',textAlign:'center',padding:16}}>Aucun client trouvé</div>
+                : filtered.map(c => (
+                  <div key={c.id} className={styles.clientRow} onClick={() => selectClient(c)}>
+                    <div className={styles.cAv} style={{background:'#2563EB'}}>{c.nom_complet?.[0]}</div>
+                    <div className={styles.cName}>{c.nom_complet}</div>
+                    <div className={styles.cPts}>{c.points} pts</div>
+                    <span style={{color:'#CBD5E1'}}>›</span>
                   </div>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className={styles.searchWrap}>
-                  <input className={styles.searchInput} placeholder="Nom du client, téléphone..." value={search} onChange={e=>setSearch(e.target.value)} />
-                </div>
-                <div className={styles.clientList}>
-                  {filtered.length === 0 && <div style={{fontSize:13,color:'#CBD5E1',textAlign:'center',padding:16}}>Aucun client trouvé</div>}
-                  {filtered.map(c => (
-                    <div key={c.id} className={styles.clientRow} onClick={()=>selectClient(c)}>
-                      <div className={styles.cAv} style={{background:'#2563EB'}}>{c.nom_complet?.[0]}</div>
-                      <div className={styles.cName}>{c.nom_complet}</div>
-                      <div className={styles.cPts}>{c.points} pts</div>
-                      <span style={{color:'#CBD5E1'}}>›</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                ))
+              }
+            </div>
           </div>
+
         </div>
       </div>
     </div>
