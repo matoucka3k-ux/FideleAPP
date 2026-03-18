@@ -20,6 +20,55 @@ export default function Encaisser() {
     ? `${window.location.origin}/rejoindre/${commercant.slug}`
     : `${window.location.origin}/rejoindre`
 
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank')
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>QR Code — ${commercant?.nom_commerce || 'Ma boutique'}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+              background: #fff;
+            }
+            .container {
+              text-align: center;
+              padding: 40px;
+              border: 2px dashed #E2E8F0;
+              border-radius: 16px;
+              max-width: 340px;
+            }
+            h1 { font-size: 20px; font-weight: 800; color: #0F172A; margin-bottom: 6px; }
+            p { font-size: 13px; color: #64748B; margin-bottom: 24px; line-height: 1.6; }
+            img { width: 200px; height: 200px; }
+            .url { font-size: 11px; color: #94A3B8; margin-top: 16px; word-break: break-all; }
+            @media print {
+              body { -webkit-print-color-adjust: exact; }
+              .container { border: 2px dashed #E2E8F0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>${commercant?.nom_commerce || 'Ma boutique'}</h1>
+            <p>Scannez ce QR code pour rejoindre<br/>notre programme de fidélité !</p>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" />
+            <div class="url">${qrUrl}</div>
+          </div>
+          <script>window.onload = () => { window.print(); window.onafterprint = () => window.close() }<\/script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
   useEffect(() => { if (user) loadClients() }, [user])
   useEffect(() => {
     setFiltered(clients.filter(c => c.nom_complet.toLowerCase().includes(search.toLowerCase())))
@@ -197,7 +246,7 @@ export default function Encaisser() {
                 <div className={styles.qrUrl}>{qrUrl}</div>
                 <div className={styles.qrHint}>Le client scanne → crée son compte → reçoit son QR code personnel</div>
                 <div className={styles.qrBtns}>
-                  <button className={styles.btnBlue} onClick={() => window.print()}>Imprimer</button>
+                  <button className={styles.btnBlue} onClick={handlePrint}>Imprimer</button>
                 </div>
               </div>
             </div>
