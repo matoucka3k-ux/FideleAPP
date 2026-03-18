@@ -7,9 +7,9 @@ export default function ClientSignup() {
   const navigate = useNavigate()
   const { slug } = useParams()
   const [commercant, setCommercant] = useState(null)
-  const [step, setStep] = useState('form') // form | welcome
+  const [step, setStep] = useState('choice') // choice | signup | login | welcome
   const [isNew, setIsNew] = useState(true)
-  const [form, setForm] = useState({ name: '', email: '', tel: '', accept: false, acceptMarketing: false })
+  const [form, setForm] = useState({ name: '', email: '', tel: '', password: '', accept: false, acceptMarketing: false })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingPage, setLoadingPage] = useState(true)
@@ -28,19 +28,30 @@ export default function ClientSignup() {
     setLoadingPage(false)
   }
 
-  async function handleSubmit() {
-    if (!form.name.trim() || !form.email.trim()) {
-      setError('Veuillez renseigner votre nom et votre email.')
+  async function handleSignup() {
+    if (!form.name.trim() || !form.email.trim() || !form.password.trim()) {
+      setError('Veuillez renseigner votre nom, email et mot de passe.')
+      return
+    }
+    if (form.password.length < 8) {
+      setError('Le mot de passe doit contenir au moins 8 caractères.')
       return
     }
     if (!form.accept) {
-      setError('Vous devez accepter les conditions d\'utilisation.')
+      setError("Vous devez accepter les conditions d'utilisation.")
       return
     }
     setLoading(true)
     setError('')
     try {
-      // Cherche si ce client existe déjà (même email, tous commerces confondus)
+      // Crée le compte auth Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: form.email.trim(),
+        password: form.password,
+      })
+      if (authError) throw authError
+
+      // Cherche si un profil client existe déjà
       const { data: existing } = await supabase
         .from('clients')
         .select('*')
@@ -50,10 +61,10 @@ export default function ClientSignup() {
       let client = existing
 
       if (!existing) {
-        // Nouveau client — on crée son compte
         const { data, error: err } = await supabase
           .from('clients')
           .insert({
+            id: authData.user.id,
             commercant_id: commercant.id,
             nom_complet: form.name.trim(),
             email: form.email.trim(),
@@ -70,48 +81,82 @@ export default function ClientSignup() {
         setIsNew(false)
       }
 
-      // Vérifie si déjà adhérent à ce commerce
-      const { data: existingAdhesion } = await supabase
-        .from('adhesions')
-        .select('id')
-        .eq('client_id', client.id)
-        .eq('commercant_id', commercant.id)
-        .maybeSingle()
-
-      if (existingAdhesion) {
-        setError('Vous êtes déjà inscrit au programme de ' + commercant.nom_commerce + '.')
-        setLoading(false)
-        return
-      }
-
-      // Crée l'adhésion à ce commerce
-      await supabase.from('adhesions').insert({
-        client_id: client.id,
-        commercant_id: commercant.id,
-        points: commercant.bonus_bienvenue || 0,
-      })
-
-      // Bonus bienvenue
-      if (commercant.bonus_bienvenue > 0) {
-        await supabase.from('transactions').insert({
-          client_id: client.id,
-          commercant_id: commercant.id,
-          points: commercant.bonus_bienvenue,
-          type: 'bonus_bienvenue',
-          description: 'Bonus de bienvenue — ' + commercant.nom_commerce,
-        })
-      }
-
-      setClientData(client)
-      sessionStorage.setItem('client_data', JSON.stringify(client))
-      sessionStorage.setItem('commercant_data', JSON.stringify(commercant))
-      setStep('welcome')
+      await rejoindreCommerce(client)
     } catch (e) {
       console.error(e)
-      setError('Une erreur est survenue. Réessayez.')
+      setError(e.message || 'Une erreur est survenue. Réessayez.')
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleLogin() {
+    if (!form.email.trim() || !form.password.trim()) {
+      setError('Veuillez renseigner votre email et mot de passe.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: form.email.trim(),
+        password: form.password,
+      })
+      if (authError) throw authError
+
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('email', form.email.trim())
+        .maybeSingle()
+
+      if (clientError || !client) throw new Error('Compte client introuvable.')
+
+      setIsNew(false)
+      await rejoindreCommerce(client)
+    } catch (e) {
+      console.error(e)
+      setError(e.message || 'Email ou mot de passe incorrect.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function rejoindreCommerce(client) {
+    // Vérifie si déjà adhérent à ce commerce
+    const { data: existingAdhesion } = await supabase
+      .from('adhesions')
+      .select('id')
+      .eq('client_id', client.id)
+      .eq('commercant_id', commercant.id)
+      .maybeSingle()
+
+    if (existingAdhesion) {
+      setError('Vous êtes déjà inscrit au programme de ' + commercant.nom_commerce + '.')
+      setLoading(false)
+      return
+    }
+
+    await supabase.from('adhesions').insert({
+      client_id: client.id,
+      commercant_id: commercant.id,
+      points: commercant.bonus_bienvenue || 0,
+    })
+
+    if (commercant.bonus_bienvenue > 0) {
+      await supabase.from('transactions').insert({
+        client_id: client.id,
+        commercant_id: commercant.id,
+        points: commercant.bonus_bienvenue,
+        type: 'bonus_bienvenue',
+        description: 'Bonus de bienvenue — ' + commercant.nom_commerce,
+      })
+    }
+
+    setClientData(client)
+    sessionStorage.setItem('client_data', JSON.stringify(client))
+    sessionStorage.setItem('commercant_data', JSON.stringify(commercant))
+    setStep('welcome')
   }
 
   if (loadingPage) return (
@@ -133,7 +178,7 @@ export default function ClientSignup() {
       <div style={{ background: '#2563EB', padding: '20px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={() => setShowLegal(null)} style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#fff', width: 32, height: 32, borderRadius: 8, cursor: 'pointer', fontSize: 16 }}>←</button>
         <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>
-          {showLegal === 'cgu' && 'Conditions d\'utilisation'}
+          {showLegal === 'cgu' && "Conditions d'utilisation"}
           {showLegal === 'confidentialite' && 'Politique de confidentialité'}
           {showLegal === 'rgpd' && 'Vos droits RGPD'}
         </div>
@@ -144,8 +189,8 @@ export default function ClientSignup() {
             <p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 20 }}>Dernière mise à jour : 1er janvier 2025</p>
             {[
               ['1. Objet', 'En rejoignant ce programme, vous acceptez les présentes conditions. Le programme est géré par FidèleApp SAS pour le compte de ' + commercant.nom_commerce + '.'],
-              ['2. Inscription', 'L\'inscription est gratuite et ouverte à toute personne majeure. Vous vous engagez à fournir des informations exactes.'],
-              ['3. Points', 'Les points sont crédités à chaque achat selon les règles du commerçant. Ils n\'ont aucune valeur monétaire et ne peuvent pas être échangés contre de l\'argent.'],
+              ['2. Inscription', "L'inscription est gratuite et ouverte à toute personne majeure. Vous vous engagez à fournir des informations exactes."],
+              ['3. Points', "Les points sont crédités à chaque achat selon les règles du commerçant. Ils n'ont aucune valeur monétaire et ne peuvent pas être échangés contre de l'argent."],
               ['4. Récompenses', 'Les récompenses sont échangeables selon les conditions du commerçant, qui peut les modifier à tout moment.'],
               ['5. Multi-commerces', 'Votre compte FidèleApp vous permet de rejoindre plusieurs programmes. Les points sont propres à chaque commerce.'],
               ['6. Résiliation', 'Vous pouvez demander la suppression de votre compte à tout moment via rgpd@fidele-app.fr.'],
@@ -163,7 +208,7 @@ export default function ClientSignup() {
             {[
               ['Données collectées', 'Nom, email, téléphone (optionnel). Nécessaires pour gérer votre compte de fidélité.'],
               ['Utilisation', 'Uniquement pour gérer votre programme, vous envoyer des notifications si consentement, et améliorer le service.'],
-              ['Partage', 'Partagées uniquement avec les commerçants dont vous êtes membre. Jamais vendues à des tiers.'],
+              ['Partage', "Partagées uniquement avec les commerçants dont vous êtes membre. Jamais vendues à des tiers."],
               ['Conservation', 'Conservées pendant votre adhésion et supprimées sous 30 jours après désinscription.'],
               ['Hébergement', 'Serveurs en Europe (France / Allemagne), conformes au RGPD.'],
             ].map(([t, c]) => (
@@ -180,11 +225,11 @@ export default function ClientSignup() {
               ✓ FidèleApp est conforme au RGPD (Règlement EU 2016/679)
             </div>
             {[
-              ['Droit d\'accès', 'Obtenir une copie de vos données.'],
+              ["Droit d'accès", 'Obtenir une copie de vos données.'],
               ['Droit de rectification', 'Corriger vos données inexactes.'],
-              ['Droit à l\'effacement', 'Demander la suppression de vos données.'],
+              ["Droit à l'effacement", 'Demander la suppression de vos données.'],
               ['Droit à la portabilité', 'Recevoir vos données dans un format lisible.'],
-              ['Droit d\'opposition', 'Vous opposer au traitement marketing.'],
+              ["Droit d'opposition", 'Vous opposer au traitement marketing.'],
               ['Droit de retrait', 'Retirer votre consentement à tout moment.'],
             ].map(([t, c]) => (
               <div key={t} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
@@ -223,7 +268,6 @@ export default function ClientSignup() {
           <strong>{commercant.nom_commerce}</strong> vous a rejoint !
         </p>
       </div>
-
       <div style={{ padding: '24px 20px' }}>
         {commercant.bonus_bienvenue > 0 && (
           <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -234,7 +278,6 @@ export default function ClientSignup() {
             </div>
           </div>
         )}
-
         <div style={{ background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '18px', marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', marginBottom: 12 }}>Comment ça marche</div>
           {[
@@ -251,11 +294,9 @@ export default function ClientSignup() {
             </div>
           ))}
         </div>
-
         <button onClick={() => navigate('/ma-carte')} style={{ width: '100%', background: '#2563EB', color: '#fff', border: 'none', fontSize: 15, fontWeight: 700, padding: 14, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
           Voir mon espace fidélité →
         </button>
-
         <p style={{ fontSize: 11, color: '#CBD5E1', textAlign: 'center', lineHeight: 1.7 }}>
           <span style={{ color: '#2563EB', cursor: 'pointer' }} onClick={() => setShowLegal('rgpd')}>RGPD</span> ·{' '}
           <span style={{ color: '#2563EB', cursor: 'pointer' }} onClick={() => setShowLegal('confidentialite')}>Confidentialité</span> ·{' '}
@@ -265,8 +306,8 @@ export default function ClientSignup() {
     </div>
   )
 
-  // FORMULAIRE
-  return (
+  // CHOIX : créer un compte ou se connecter
+  if (step === 'choice') return (
     <div className={styles.page}>
       <div className={styles.header}>
         <div className={styles.shopLogo}>{commercant.nom_commerce?.[0]?.toUpperCase()}</div>
@@ -277,11 +318,40 @@ export default function ClientSignup() {
         {commercant.bonus_bienvenue > 0 && (
           <div className={styles.bonusBanner}>{commercant.bonus_bienvenue} points offerts dès votre inscription !</div>
         )}
+        <button
+          onClick={() => { setError(''); setStep('signup') }}
+          style={{ width: '100%', background: '#2563EB', color: '#fff', border: 'none', fontSize: 15, fontWeight: 700, padding: 14, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 12 }}
+        >
+          Créer mon compte fidélité →
+        </button>
+        <button
+          onClick={() => { setError(''); setStep('login') }}
+          style={{ width: '100%', background: '#fff', color: '#2563EB', border: '1.5px solid #2563EB', fontSize: 15, fontWeight: 700, padding: 14, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          J'ai déjà un compte — Se connecter
+        </button>
+      </div>
+    </div>
+  )
+
+  // FORMULAIRE INSCRIPTION
+  if (step === 'signup') return (
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <div className={styles.shopLogo}>{commercant.nom_commerce?.[0]?.toUpperCase()}</div>
+        <h2 className={styles.shopName}>{commercant.nom_commerce}</h2>
+        <p className={styles.shopSub}>Créez votre compte fidélité</p>
+      </div>
+      <div className={styles.body}>
+        {commercant.bonus_bienvenue > 0 && (
+          <div className={styles.bonusBanner}>{commercant.bonus_bienvenue} points offerts dès votre inscription !</div>
+        )}
         {error && (
           <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 9, padding: '10px 14px', fontSize: 13, color: '#DC2626', fontWeight: 600, marginBottom: 14 }}>{error}</div>
         )}
         <div className={styles.field}><label>Prénom et nom *</label><input type="text" placeholder="Marie Dupont" value={form.name} onChange={e => handle('name', e.target.value)} /></div>
         <div className={styles.field}><label>Email *</label><input type="email" placeholder="marie@email.fr" value={form.email} onChange={e => handle('email', e.target.value)} /></div>
+        <div className={styles.field}><label>Mot de passe *</label><input type="password" placeholder="8 caractères minimum" value={form.password} onChange={e => handle('password', e.target.value)} /></div>
         <div className={styles.field}><label>Téléphone (optionnel)</label><input type="tel" placeholder="06 12 34 56 78" value={form.tel} onChange={e => handle('tel', e.target.value)} /></div>
         <div style={{ height: 1, background: '#F1F5F9', margin: '16px 0' }} />
         <div className={styles.checkRow}>
@@ -292,8 +362,35 @@ export default function ClientSignup() {
           <input type="checkbox" id="marketing" checked={form.acceptMarketing} onChange={e => handle('acceptMarketing', e.target.checked)} />
           <label htmlFor="marketing">J'accepte de recevoir des offres et notifications de {commercant.nom_commerce}. (optionnel)</label>
         </div>
-        <button className={styles.btnBlue} onClick={handleSubmit} disabled={loading}>
+        <button className={styles.btnBlue} onClick={handleSignup} disabled={loading}>
           {loading ? 'Inscription...' : 'Créer mon compte fidélité →'}
+        </button>
+        <button onClick={() => { setError(''); setStep('choice') }} style={{ width: '100%', background: 'none', border: 'none', color: '#94A3B8', fontSize: 13, fontWeight: 600, padding: '10px 0', cursor: 'pointer', fontFamily: 'inherit', marginTop: 4 }}>
+          ← Retour
+        </button>
+      </div>
+    </div>
+  )
+
+  // FORMULAIRE CONNEXION
+  if (step === 'login') return (
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <div className={styles.shopLogo}>{commercant.nom_commerce?.[0]?.toUpperCase()}</div>
+        <h2 className={styles.shopName}>{commercant.nom_commerce}</h2>
+        <p className={styles.shopSub}>Connectez-vous à votre compte fidélité</p>
+      </div>
+      <div className={styles.body}>
+        {error && (
+          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 9, padding: '10px 14px', fontSize: 13, color: '#DC2626', fontWeight: 600, marginBottom: 14 }}>{error}</div>
+        )}
+        <div className={styles.field}><label>Email *</label><input type="email" placeholder="marie@email.fr" value={form.email} onChange={e => handle('email', e.target.value)} /></div>
+        <div className={styles.field}><label>Mot de passe *</label><input type="password" placeholder="Votre mot de passe" value={form.password} onChange={e => handle('password', e.target.value)} /></div>
+        <button className={styles.btnBlue} onClick={handleLogin} disabled={loading}>
+          {loading ? 'Connexion...' : 'Se connecter →'}
+        </button>
+        <button onClick={() => { setError(''); setStep('choice') }} style={{ width: '100%', background: 'none', border: 'none', color: '#94A3B8', fontSize: 13, fontWeight: 600, padding: '10px 0', cursor: 'pointer', fontFamily: 'inherit', marginTop: 4 }}>
+          ← Retour
         </button>
         <p style={{ fontSize: 11, color: '#CBD5E1', textAlign: 'center', marginTop: 14, lineHeight: 1.7 }}>
           Données protégées RGPD ·{' '}
