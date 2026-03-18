@@ -17,20 +17,54 @@ const TESTIMONIALS = [
 ]
 
 const DASH_METRICS = [
-  { label: 'Clients fidèles', value: '248', change: '+12 ce mois', positive: true },
-  { label: 'Achats enregistrés', value: '1 043', change: '+18%', positive: true },
-  { label: 'Points distribués', value: '14 200', change: '+9%', positive: true },
-  { label: 'Récompenses offertes', value: '37', change: 'ce mois', positive: true },
+  { label: 'Clients fidèles', value: '248', change: '+12 ce mois' },
+  { label: 'Achats enregistrés', value: '1 043', change: '+18%' },
+  { label: 'Points distribués', value: '14 200', change: '+9%' },
+  { label: 'Récompenses offertes', value: '37', change: 'ce mois' },
 ]
 
 const DASH_CLIENTS = [
-  { ini: 'AM', name: 'Alice M.', pts: '+92 pts', type: 'Achat', typeColor: '#22c55e', ptColor: '#16a34a' },
-  { ini: 'BP', name: 'Bruno P.', pts: '+50 pts', type: 'Bonus bienvenue', typeColor: '#6366f1', ptColor: '#4f46e5' },
-  { ini: 'CR', name: 'Camille R.', pts: '-100 pts', type: 'Échange', typeColor: '#f59e0b', ptColor: '#ef4444' },
-  { ini: 'DM', name: 'David M.', pts: '+74 pts', type: 'Achat', typeColor: '#22c55e', ptColor: '#16a34a' },
+  { ini: 'AM', name: 'Alice M.', desc: 'Menu du jour ×2', pts: '+92 pts', type: 'Achat', typeColor: '#22c55e', ptColor: '#16a34a' },
+  { ini: 'LB', name: 'Louise B.', desc: 'Bonus de bienvenue', pts: '+50 pts', type: 'Bonus bienvenue', typeColor: '#6366f1', ptColor: '#4f46e5' },
+  { ini: 'FB', name: 'Florian B.', desc: 'Café offert', pts: '-100 pts', type: 'Échange', typeColor: '#f59e0b', ptColor: '#ef4444' },
+  { ini: 'DM', name: 'David M.', desc: 'Kebab avec menu ×3', pts: '+74 pts', type: 'Achat', typeColor: '#22c55e', ptColor: '#16a34a' },
 ]
 
 const BAR_DATA = [40, 52, 44, 63, 55, 75, 66, 82, 71, 90, 80, 100]
+
+const IconDashboard = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:13,height:13}}>
+    <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
+    <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>
+  </svg>
+)
+const IconEncaisser = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:13,height:13}}>
+    <rect x="1" y="8" width="6" height="7" rx="1"/><rect x="9" y="5" width="6" height="10" rx="1"/><rect x="1" y="1" width="6" height="5" rx="1"/>
+  </svg>
+)
+const IconClients = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:13,height:13}}>
+    <circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
+  </svg>
+)
+const IconPoints = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:13,height:13}}>
+    <path d="M8 2l1.2 2.5 2.8.4-2 2 .5 2.8L8 8.4 5.5 9.7 6 6.9 4 4.9l2.8-.4z"/>
+  </svg>
+)
+const IconCompte = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:13,height:13}}>
+    <circle cx="8" cy="6" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/>
+  </svg>
+)
+
+const NAV_ITEMS = [
+  { label: 'Tableau de bord', icon: <IconDashboard />, active: true },
+  { label: 'Encaisser', icon: <IconEncaisser />, active: false },
+  { label: 'Mes clients', icon: <IconClients />, active: false },
+  { label: 'Système de points', icon: <IconPoints />, active: false },
+]
 
 export default function Landing() {
   const navigate = useNavigate()
@@ -126,24 +160,16 @@ export default function Landing() {
           <h2 className={styles.sectionTitle}>Tout ce qu'il se passe <span>dans votre commerce</span></h2>
           <p className={styles.sectionSub}>Simple et clair — pensé pour les commerçants, pas pour les informaticiens.</p>
 
-          {/* Fenêtre style macOS */}
           <div style={{
-            background: '#fff',
-            borderRadius: 16,
+            background: '#fff', borderRadius: 16,
             boxShadow: '0 32px 80px rgba(0,0,0,0.13)',
-            overflow: 'hidden',
-            border: '1px solid #e8edf2',
-            maxWidth: 900,
-            margin: '0 auto',
+            overflow: 'hidden', border: '1px solid #e8edf2',
+            maxWidth: 900, margin: '0 auto',
           }}>
-            {/* Barre titre macOS */}
+            {/* Barre macOS */}
             <div style={{
-              background: '#f4f5f7',
-              borderBottom: '1px solid #e2e6ea',
-              padding: '12px 18px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
+              background: '#f4f5f7', borderBottom: '1px solid #e2e6ea',
+              padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8,
             }}>
               <div style={{ width: 13, height: 13, borderRadius: '50%', background: '#FF5F57', border: '1px solid #e0443e' }} />
               <div style={{ width: 13, height: 13, borderRadius: '50%', background: '#FEBC2E', border: '1px solid #d4a017' }} />
@@ -152,15 +178,11 @@ export default function Landing() {
               <span style={{ marginLeft: 'auto', fontSize: 12, background: '#dcfce7', color: '#16a34a', padding: '2px 10px', borderRadius: 20, fontWeight: 600 }}>● En direct</span>
             </div>
 
-            {/* Contenu dashboard */}
-            <div style={{ display: 'flex', minHeight: 420 }}>
+            <div style={{ display: 'flex', minHeight: 500, position: 'relative' }}>
               {/* Sidebar */}
               <div style={{
-                width: 190,
-                background: '#fff',
-                borderRight: '1px solid #f0f2f5',
-                padding: '20px 0',
-                flexShrink: 0,
+                width: 195, background: '#fff', borderRight: '1px solid #f0f2f5',
+                padding: '20px 0', flexShrink: 0, display: 'flex', flexDirection: 'column',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px 20px' }}>
                   <div style={{ width: 28, height: 28, borderRadius: 8, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -168,43 +190,33 @@ export default function Landing() {
                   </div>
                   <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>FidèleApp</span>
                 </div>
+
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', padding: '0 16px 6px', letterSpacing: 1 }}>MENU</div>
-                {[
-                  { label: 'Tableau de bord', active: true, icon: '▦' },
-                  { label: 'Encaisser', active: false, icon: '▤' },
-                  { label: 'Mes clients', active: false, icon: '👤' },
-                  { label: 'Système de points', active: false, icon: '★' },
-                ].map(item => (
+                {NAV_ITEMS.map(item => (
                   <div key={item.label} style={{
                     display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '8px 16px', margin: '1px 8px', borderRadius: 8,
+                    padding: '7px 12px', margin: '1px 8px', borderRadius: 8,
                     background: item.active ? '#eff6ff' : 'transparent',
                     color: item.active ? '#2563eb' : '#64748b',
-                    fontWeight: item.active ? 600 : 400,
-                    fontSize: 13,
+                    fontWeight: item.active ? 600 : 400, fontSize: 13,
                   }}>
-                    <span style={{ fontSize: 11 }}>{item.icon}</span>
+                    <span style={{ color: item.active ? '#2563eb' : '#94a3b8', display: 'flex' }}>{item.icon}</span>
                     {item.label}
                   </div>
                 ))}
+
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', padding: '12px 16px 6px', letterSpacing: 1 }}>PARAMÈTRES</div>
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 16px', margin: '1px 8px', borderRadius: 8,
+                  padding: '7px 12px', margin: '1px 8px', borderRadius: 8,
                   color: '#64748b', fontSize: 13,
                 }}>
-                  <span style={{ fontSize: 11 }}>👤</span> Mon compte
+                  <span style={{ color: '#94a3b8', display: 'flex' }}><IconCompte /></span>
+                  Mon compte
                 </div>
-                {/* User bas */}
-                <div style={{
-                  position: 'absolute', bottom: 0,
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '12px 16px',
-                  borderTop: '1px solid #f0f2f5',
-                  width: 190,
-                  background: '#fff',
-                }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>CP</div>
+
+                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', borderTop: '1px solid #f0f2f5' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>CP</div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Cave du palace</div>
                     <div style={{ fontSize: 11, color: '#94a3b8' }}>Bêta · Gratuit</div>
@@ -212,10 +224,10 @@ export default function Landing() {
                 </div>
               </div>
 
-              {/* Main content */}
-              <div style={{ flex: 1, padding: '20px 24px', background: '#f8fafc', position: 'relative' }}>
+              {/* Main */}
+              <div style={{ flex: 1, padding: '20px 22px', background: '#f8fafc', overflowX: 'hidden' }}>
                 {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                   <div>
                     <div style={{ fontSize: 18, fontWeight: 700, color: '#1e293b' }}>Tableau de bord</div>
                     <div style={{ fontSize: 13, color: '#94a3b8' }}>Bonjour — Cave du palace</div>
@@ -226,46 +238,42 @@ export default function Landing() {
                         padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 500,
                         background: i === 1 ? '#2563eb' : 'transparent',
                         color: i === 1 ? '#fff' : '#64748b',
-                        cursor: 'pointer',
                       }}>{t}</div>
                     ))}
                   </div>
                 </div>
 
                 {/* Metrics */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
                   {DASH_METRICS.map(m => (
                     <div key={m.label} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', border: '1px solid #f0f2f5' }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', letterSpacing: 0.5, marginBottom: 4 }}>{m.label.toUpperCase()}</div>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: '#94a3b8', letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase' }}>{m.label}</div>
                       <div style={{ fontSize: 22, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>{m.value}</div>
                       <div style={{ fontSize: 11, color: '#16a34a', background: '#dcfce7', display: 'inline-block', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>{m.change}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* Charts row */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-                  {/* Line chart simulé */}
+                {/* Charts */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                   <div style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', border: '1px solid #f0f2f5' }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1e293b', marginBottom: 2 }}>Évolution des clients fidèles</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10 }}>Nombre total cumulé</div>
-                    <svg viewBox="0 0 260 80" style={{ width: '100%', height: 70 }}>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>Nombre total cumulé</div>
+                    <svg viewBox="0 0 260 70" style={{ width: '100%', height: 65 }}>
                       <defs>
                         <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#2563eb" stopOpacity="0.15"/>
                           <stop offset="100%" stopColor="#2563eb" stopOpacity="0"/>
                         </linearGradient>
                       </defs>
-                      <path d="M0,75 L20,74 L40,73 L60,71 L80,69 L100,65 L120,58 L140,48 L160,40 L180,28 L200,18 L220,12 L240,8 L260,5" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round"/>
-                      <path d="M0,75 L20,74 L40,73 L60,71 L80,69 L100,65 L120,58 L140,48 L160,40 L180,28 L200,18 L220,12 L240,8 L260,5 L260,80 L0,80Z" fill="url(#grad)"/>
+                      <path d="M0,68 L22,67 L44,66 L66,64 L88,61 L110,56 L132,48 L154,38 L176,28 L198,18 L220,11 L242,7 L260,4" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round"/>
+                      <path d="M0,68 L22,67 L44,66 L66,64 L88,61 L110,56 L132,48 L154,38 L176,28 L198,18 L220,11 L242,7 L260,4 L260,70 L0,70Z" fill="url(#grad)"/>
                     </svg>
                   </div>
-
-                  {/* Bar chart simulé */}
                   <div style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', border: '1px solid #f0f2f5' }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1e293b', marginBottom: 2 }}>Moyenne pts / client actif</div>
                     <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Par semaine</div>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 70, padding: '0 4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 65, padding: '0 2px' }}>
                       {BAR_DATA.map((h, i) => (
                         <div key={i} style={{
                           flex: 1, borderRadius: 3,
@@ -283,23 +291,26 @@ export default function Landing() {
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1e293b' }}>Dernières transactions</div>
                     <div style={{ fontSize: 11, color: '#94a3b8' }}>9 au total</div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 0 }}>
-                    {['CLIENT', 'TYPE', 'POINTS', 'DATE'].map(h => (
-                      <div key={h} style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', padding: '6px 14px', borderBottom: '1px solid #f8fafc' }}>{h}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr 1fr auto auto' }}>
+                    {['CLIENT', 'DESCRIPTION', 'TYPE', 'POINTS', 'DATE'].map(h => (
+                      <div key={h} style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', padding: '6px 12px', borderBottom: '1px solid #f8fafc' }}>{h}</div>
                     ))}
                     {DASH_CLIENTS.map(c => (
                       <>
-                        <div key={c.name + 'n'} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderBottom: '1px solid #f8fafc' }}>
-                          <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>{c.ini}</div>
+                        <div key={c.name+'n'} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderBottom: '1px solid #f8fafc' }}>
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 700, flexShrink: 0 }}>{c.ini}</div>
                           <span style={{ fontSize: 12, color: '#1e293b', fontWeight: 500 }}>{c.name}</span>
                         </div>
-                        <div key={c.name + 't'} style={{ padding: '8px 14px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
+                        <div key={c.name+'d'} style={{ padding: '8px 12px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: '#64748b' }}>{c.desc}</span>
+                        </div>
+                        <div key={c.name+'t'} style={{ padding: '8px 12px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 11, background: c.typeColor + '22', color: c.typeColor, padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{c.type}</span>
                         </div>
-                        <div key={c.name + 'p'} style={{ padding: '8px 14px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
+                        <div key={c.name+'p'} style={{ padding: '8px 12px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 12, color: c.ptColor, fontWeight: 700 }}>{c.pts}</span>
                         </div>
-                        <div key={c.name + 'd'} style={{ padding: '8px 14px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
+                        <div key={c.name+'da'} style={{ padding: '8px 12px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 11, color: '#94a3b8' }}>18/03/26</span>
                         </div>
                       </>
