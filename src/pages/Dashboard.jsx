@@ -13,6 +13,20 @@ const Tip = ({ active, payload, label }) => active && payload?.length ? (
 
 const PERIODS = ['Jour', 'Semaine', 'Mois']
 
+const typeBadgeStyle = (type) => {
+  if (type === 'achat') return { background: '#EFF6FF', color: '#1D4ED8' }
+  if (type === 'echange') return { background: '#FEF9C3', color: '#854D0E' }
+  if (type === 'bonus_bienvenue') return { background: '#EEF2FF', color: '#4338CA' }
+  return { background: '#F0FDF4', color: '#166534' }
+}
+
+const typeLabel = (type) => {
+  if (type === 'achat') return 'Achat'
+  if (type === 'echange') return 'Échange'
+  if (type === 'bonus_bienvenue') return 'bonus_bienvenue'
+  return type
+}
+
 export default function Dashboard() {
   const { user, commercant } = useAuth()
   const [stats, setStats] = useState({ clients: 0, achats: 0, points: 0, recompenses: 0 })
@@ -41,13 +55,11 @@ export default function Dashboard() {
       setClients(cl)
       setTransactions(tx)
 
-      // Stats totales
       const totalPts = tx.filter(t => t.points > 0).reduce((s, t) => s + t.points, 0)
       const exchanges = tx.filter(t => t.type === 'echange').length
       const achats = tx.filter(t => t.type === 'achat').length
       setStats({ clients: cl.length, achats, points: totalPts, recompenses: exchanges })
 
-      // Delta (comparaison période précédente — 30 derniers jours vs 30 jours avant)
       const now = new Date()
       const d30 = new Date(now); d30.setDate(now.getDate() - 30)
       const d60 = new Date(now); d60.setDate(now.getDate() - 60)
@@ -78,7 +90,6 @@ export default function Dashboard() {
   function buildCharts() {
     const now = new Date()
 
-    // --- COURBE : évolution cumulative des clients ---
     let slots = []
     if (period === 'Jour') {
       slots = Array.from({ length: 14 }, (_, i) => {
@@ -101,14 +112,12 @@ export default function Dashboard() {
       })
     }
 
-    // Clients cumulés
     const courbe = slots.map(slot => {
       const count = clients.filter(c => new Date(c.created_at) < slot.end).length
       return { label: slot.label, clients: count }
     })
     setCourbeData(courbe)
 
-    // Moyenne pts/client par période
     const moyenne = slots.map(slot => {
       const txSlot = transactions.filter(t => {
         const d = new Date(t.created_at)
@@ -122,7 +131,6 @@ export default function Dashboard() {
     setMoyenneData(moyenne)
   }
 
-  // Tendance moyenne pts : dernière période vs avant-dernière
   const lastAvg = moyenneData[moyenneData.length - 1]?.moyenne ?? 0
   const prevAvg = moyenneData[moyenneData.length - 2]?.moyenne ?? 0
   const avgTrend = lastAvg - prevAvg
@@ -160,7 +168,6 @@ export default function Dashboard() {
           <div style={{ textAlign: 'center', padding: 48, color: '#94A3B8', fontSize: 14 }}>Chargement...</div>
         ) : (
           <>
-            {/* MÉTRIQUES */}
             <div className={styles.metrics}>
               {[
                 { lbl: 'Clients fidèles', val: stats.clients, delta: statsDelta.clients },
@@ -189,9 +196,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <>
-                {/* COURBES */}
                 <div className={styles.chartsRow}>
-                  {/* Courbe clients cumulés */}
                   <div className={styles.card}>
                     <div className={styles.cardHead}>
                       <div>
@@ -215,7 +220,6 @@ export default function Dashboard() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Moyenne pts/client */}
                   <div className={styles.card}>
                     <div className={styles.cardHead}>
                       <div>
@@ -234,16 +238,13 @@ export default function Dashboard() {
                           <XAxis dataKey="label" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
                           <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
                           <Tooltip content={<Tip />} cursor={{ fill: 'rgba(37,99,235,0.04)' }} />
-                          <Bar dataKey="moyenne" fill="#2563EB" radius={[4, 4, 0, 0]} name="Moy. pts"
-                            label={false}
-                          />
+                          <Bar dataKey="moyenne" fill="#2563EB" radius={[4, 4, 0, 0]} name="Moy. pts" />
                         </BarChart>
                       </ResponsiveContainer>
                     )}
                   </div>
                 </div>
 
-                {/* TABLEAU TRANSACTIONS */}
                 <div className={styles.tableCard}>
                   <div className={styles.tableHead}>
                     <span className={styles.cardTitle}>Dernières transactions</span>
@@ -272,11 +273,8 @@ export default function Dashboard() {
                           </td>
                           <td>{t.description || '—'}</td>
                           <td>
-                            <span className={styles.statusBadge} style={{
-                              background: t.type === 'achat' ? '#EFF6FF' : t.type === 'echange' ? '#FEF9C3' : '#F0FDF4',
-                              color: t.type === 'achat' ? '#1D4ED8' : t.type === 'echange' ? '#854D0E' : '#166534'
-                            }}>
-                              {t.type === 'achat' ? 'Achat' : t.type === 'echange' ? 'Échange' : t.type}
+                            <span className={styles.statusBadge} style={typeBadgeStyle(t.type)}>
+                              {typeLabel(t.type)}
                             </span>
                           </td>
                           <td>
