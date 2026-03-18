@@ -25,7 +25,7 @@ const DASH_METRICS = [
 
 const DASH_CLIENTS = [
   { ini: 'AM', name: 'Alice M.', desc: 'Menu du jour ×2', pts: '+92 pts', type: 'Achat', typeColor: '#22c55e', ptColor: '#16a34a' },
-  { ini: 'LB', name: 'Louise B.', desc: 'Bonus de bienvenue', pts: '+50 pts', type: 'Bonus bienvenue', typeColor: '#6366f1', ptColor: '#4f46e5' },
+  { ini: 'LB', name: 'Louise B.', desc: 'Bonus de bienvenue', pts: '+50 pts', type: 'bonus_bienvenue', typeColor: '#6366f1', ptColor: '#4f46e5' },
   { ini: 'FB', name: 'Florian B.', desc: 'Café offert', pts: '-100 pts', type: 'Échange', typeColor: '#f59e0b', ptColor: '#ef4444' },
   { ini: 'DM', name: 'David M.', desc: 'Kebab avec menu ×3', pts: '+74 pts', type: 'Achat', typeColor: '#22c55e', ptColor: '#16a34a' },
 ]
@@ -305,7 +305,16 @@ export default function Landing() {
                           <span style={{ fontSize: 11, color: '#64748b' }}>{c.desc}</span>
                         </div>
                         <div key={c.name+'t'} style={{ padding: '8px 12px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, background: c.typeColor + '22', color: c.typeColor, padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{c.type}</span>
+                          <span style={{
+                            fontSize: 11,
+                            background: c.typeColor + '22',
+                            color: c.typeColor,
+                            padding: '2px 8px',
+                            borderRadius: 20,
+                            fontWeight: 600,
+                            fontFamily: c.type === 'bonus_bienvenue' ? 'monospace' : 'inherit',
+                            letterSpacing: c.type === 'bonus_bienvenue' ? '-0.3px' : 'normal',
+                          }}>{c.type}</span>
                         </div>
                         <div key={c.name+'p'} style={{ padding: '8px 12px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 12, color: c.ptColor, fontWeight: 700 }}>{c.pts}</span>
