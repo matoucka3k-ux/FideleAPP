@@ -52,7 +52,7 @@ export default function ClientCard() {
 
   const firstReward = recompenses.find(r => r.points_requis > client.points)
   const pct = firstReward ? Math.min(100, (client.points / firstReward.points_requis) * 100) : 100
-  const qrValue = `${window.location.origin}/client/${client.id}`
+  const qrValue = `${window.location.origin}/ma-carte`
   const prenom = client.nom_complet?.split(' ')[0] || client.nom_complet
 
   return (
