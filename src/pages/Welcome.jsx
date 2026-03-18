@@ -1,246 +1,310 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/AuthContext.jsx'
 
-const TABS = ['Profil', 'Abonnement', 'Sécurité', 'Mentions légales & RGPD']
-const LEGAL_TABS = ['CGU', 'Confidentialité', 'RGPD', 'Mentions légales', 'Cookies']
+export default function Welcome() {
+  const navigate = useNavigate()
+  const { user, commercant } = useAuth()
+  const [step, setStep] = useState('bienvenue') // bienvenue | points | recompenses | done
+  const [bonus, setBonus] = useState(50)
+  const [articles, setArticles] = useState([{ id: 1, nom: '', points: '' }])
+  const [rewards, setRewards] = useState([{ id: 1, nom: '', points_requis: '' }])
+  const [nextId, setNextId] = useState(10)
+  const [loading, setLoading] = useState(false)
 
-const s = {
-  page: { minHeight: '100vh', background: '#F8FAFF' },
-  topbar: { background: '#fff', borderBottom: '1px solid #E8F0FE', padding: '14px 28px' },
-  title: { fontSize: 18, fontWeight: 800, color: '#0F172A' },
-  sub: { fontSize: 13, color: '#94A3B8', marginTop: 2 },
-  content: { padding: '24px 28px', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 20 },
-  card: { background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '22px 24px' },
-  cardTitle: { fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 },
-  cardSub: { fontSize: 13, color: '#64748B', marginBottom: 16 },
-}
+  const prenom = commercant?.nom_complet?.split(' ')[0] || 'là'
+  const nomCommerce = commercant?.nom_commerce || 'votre commerce'
 
-export default function MonCompte() {
-  const { commercant, signOut, updateCommercant } = useAuth()
-  const [tab, setTab] = useState('Profil')
-  const [legalTab, setLegalTab] = useState('CGU')
-  const [editing, setEditing] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [cookieOn, setCookieOn] = useState(true)
-  const [form, setForm] = useState(null)
+  const updateArticle = (id, f, v) => setArticles(a => a.map(x => x.id === id ? { ...x, [f]: v } : x))
+  const addArticle = () => { setArticles(a => [...a, { id: nextId, nom: '', points: '' }]); setNextId(n => n + 1) }
+  const delArticle = (id) => setArticles(a => a.filter(x => x.id !== id))
 
-  const startEditing = () => {
-    setForm({
-      prenom: commercant?.nom_complet?.split(' ')[0] ?? '',
-      nom: commercant?.nom_complet?.split(' ').slice(1).join(' ') ?? '',
-      nom_commerce: commercant?.nom_commerce ?? '',
-      email: commercant?.email ?? '',
-      telephone: commercant?.telephone ?? '',
-      adresse: commercant?.adresse ?? '',
-    })
-    setEditing(true)
-  }
+  const updateReward = (id, f, v) => setRewards(r => r.map(x => x.id === id ? { ...x, [f]: v } : x))
+  const addReward = () => { setRewards(r => [...r, { id: nextId, nom: '', points_requis: '' }]); setNextId(n => n + 1) }
+  const delReward = (id) => setRewards(r => r.filter(x => x.id !== id))
 
-  const saveProfile = async () => {
+  async function finish() {
+    setLoading(true)
     try {
-      await updateCommercant({
-        nom_complet: `${form.prenom} ${form.nom}`.trim(),
-        nom_commerce: form.nom_commerce,
-        telephone: form.telephone,
-        adresse: form.adresse,
-      })
-      setEditing(false)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      await supabase.from('commercants').update({ bonus_bienvenue: bonus || 0 }).eq('id', user.id)
+
+      const validArticles = articles.filter(a => a.nom.trim())
+      if (validArticles.length > 0) {
+        await supabase.from('categories').insert(
+          validArticles.map(a => ({
+            commercant_id: user.id,
+            nom: a.nom,
+            points_par_euro: a.points || 0,
+            actif: true
+          }))
+        )
+      }
+
+      const validRewards = rewards.filter(r => r.nom.trim())
+      if (validRewards.length > 0) {
+        await supabase.from('recompenses').insert(
+          validRewards.map(r => ({
+            commercant_id: user.id,
+            nom: r.nom,
+            points_requis: r.points_requis || 0
+          }))
+        )
+      }
+
+      navigate('/dashboard')
     } catch (e) {
-      alert('Erreur lors de la sauvegarde : ' + e.message)
+      console.error(e)
+      alert('Erreur lors de la sauvegarde. Réessayez.')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const initiales = commercant?.nom_complet?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() ?? '?'
+  const inp = { border: '1.5px solid #E2E8F0', borderRadius: 8, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit', color: '#0F172A', outline: 'none', background: '#fff', width: '100%' }
 
-  const tabStyle = (t) => ({
-    padding: '8px 18px', borderRadius: 8, border: tab === t ? '1px solid #E8F0FE' : 'none',
-    background: tab === t ? '#fff' : 'none', color: tab === t ? '#2563EB' : '#64748B',
-    fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s'
-  })
-
-  const lTabStyle = (t) => ({
-    padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${legalTab === t ? '#93C5FD' : '#E2E8F0'}`,
-    background: legalTab === t ? '#EFF6FF' : '#fff', color: legalTab === t ? '#2563EB' : '#475569',
-    fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit'
-  })
-
-  const inp = (disabled) => ({ border: `1.5px solid ${disabled ? '#F1F5F9' : '#E2E8F0'}`, borderRadius: 8, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit', color: '#0F172A', outline: 'none', background: disabled ? '#F8FAFF' : '#fff', width: '100%' })
-
-  const fields = editing && form ? [
-    ['Prénom', 'prenom', false],
-    ['Nom', 'nom', false],
-    ['Nom du commerce', 'nom_commerce', true],
-    ['Email', 'email', false, true],
-    ['Téléphone', 'telephone', false],
-    ['Adresse', 'adresse', true],
-  ] : [
-    ['Prénom', commercant?.nom_complet?.split(' ')[0] ?? '', false],
-    ['Nom', commercant?.nom_complet?.split(' ').slice(1).join(' ') ?? '', false],
-    ['Nom du commerce', commercant?.nom_commerce ?? '', true],
-    ['Email', commercant?.email ?? '', false],
-    ['Téléphone', commercant?.telephone ?? '', false],
-    ['Adresse', commercant?.adresse ?? '', true],
-  ]
+  // Barre de progression
+  const steps = ['bienvenue', 'points', 'recompenses']
+  const stepIndex = steps.indexOf(step)
 
   return (
-    <div style={s.page}>
-      <div style={s.topbar}><div style={s.title}>Mon compte</div><div style={s.sub}>Gérez vos informations, votre abonnement et vos préférences</div></div>
-      <div style={s.content}>
-        {saved && <div style={{ background: '#DCFCE7', border: '1px solid #BBF7D0', borderRadius: 9, padding: '10px 16px', fontSize: 13, fontWeight: 600, color: '#166534' }}>✓ Modifications enregistrées</div>}
+    <div style={{ minHeight: '100vh', background: '#F8FAFF', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
 
-        {/* ONGLETS */}
-        <div style={{ display: 'flex', gap: 4, background: '#F1F5F9', borderRadius: 10, padding: 3, width: 'fit-content' }}>
-          {TABS.map(t => <button key={t} style={tabStyle(t)} onClick={() => setTab(t)}>{t}</button>)}
+      {/* TOPBAR */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #E8F0FE', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="2" width="14" height="14"><path d="M8 2C5 2 3 4 3 6.5c0 3.5 5 7.5 5 7.5s5-4 5-7.5C13 4 11 2 8 2z" /></svg>
+          </div>
+          <span style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>FidèleApp</span>
         </div>
-
-        {/* PROFIL */}
-        {tab === 'Profil' && (
-          <>
-            <div style={s.card}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-                <div style={s.cardTitle}>Informations du commerce</div>
-                <button onClick={() => editing ? saveProfile() : startEditing()} style={{ background: editing ? '#2563EB' : '#F8FAFF', color: editing ? '#fff' : '#475569', border: '1.5px solid #E2E8F0', fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {editing ? 'Enregistrer' : 'Modifier'}
-                </button>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#2563EB', color: '#fff', fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initiales}</div>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#0F172A' }}>{commercant?.nom_complet ?? ''}</div>
-                  <div style={{ fontSize: 13, color: '#94A3B8' }}>{commercant?.email ?? ''}</div>
+        {/* Barre de progression */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {['Bienvenue', 'Système de points', 'Récompenses'].map((label, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: '50%', fontSize: 11, fontWeight: 800,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: i < stepIndex ? '#16A34A' : i === stepIndex ? '#2563EB' : '#E2E8F0',
+                  color: i <= stepIndex ? '#fff' : '#94A3B8'
+                }}>
+                  {i < stepIndex ? '✓' : i + 1}
                 </div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: i === stepIndex ? '#2563EB' : i < stepIndex ? '#16A34A' : '#94A3B8' }}>{label}</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                {editing && form ? (
-                  fields.map(([label, key, full, disabled]) => (
-                    <div key={label} style={{ gridColumn: full ? '1/-1' : 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      <label style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</label>
-                      <input
-                        value={form[key]}
-                        disabled={disabled}
-                        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                        style={inp(disabled)}
-                      />
-                    </div>
-                  ))
-                ) : (
-                  fields.map(([label, value, full]) => (
-                    <div key={label} style={{ gridColumn: full ? '1/-1' : 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      <label style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</label>
-                      <input defaultValue={value} disabled style={inp(true)} />
-                    </div>
-                  ))
-                )}
-              </div>
+              {i < 2 && <div style={{ width: 24, height: 2, background: i < stepIndex ? '#16A34A' : '#E2E8F0', borderRadius: 2 }} />}
             </div>
-          </>
-        )}
+          ))}
+        </div>
+        <div style={{ width: 100 }} />
+      </div>
 
-        {/* ABONNEMENT */}
-        {tab === 'Abonnement' && (
-          <>
-            <div style={s.card}>
-              <div style={s.cardTitle}>Mon abonnement actuel</div>
-              <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', border: '1.5px solid #93C5FD', borderRadius: 12, padding: '20px 22px', marginTop: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '40px 24px' }}>
+
+        {/* ÉTAPE 1 — BIENVENUE */}
+        {step === 'bienvenue' && (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: 40 }}>
+              <div style={{ fontSize: 40, marginBottom: 16 }}>🎉</div>
+              <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0F172A', marginBottom: 10, letterSpacing: -0.5 }}>
+                Bienvenue {prenom} !
+              </h1>
+              <p style={{ fontSize: 15, color: '#64748B', lineHeight: 1.7, maxWidth: 480, margin: '0 auto' }}>
+                Votre compte <strong>{nomCommerce}</strong> est prêt. Configurons maintenant votre programme de fidélité en 2 étapes rapides.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 36 }}>
+              {[
+                ['⭐', 'Système de points', 'Définissez combien de points chaque article ou achat rapporte à vos clients.'],
+                ['🎁', 'Récompenses', 'Créez les cadeaux que vos clients pourront débloquer avec leurs points.'],
+                ['📱', 'C\'est parti !', 'Votre QR code boutique sera prêt à afficher sur votre comptoir.'],
+              ].map(([emoji, titre, desc]) => (
+                <div key={titre} style={{ background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                  <div style={{ fontSize: 22, flexShrink: 0 }}>{emoji}</div>
                   <div>
-                    <div style={{ background: '#2563EB', color: '#fff', fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 999, display: 'inline-block', marginBottom: 8 }}>Actif</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#1D4ED8', marginBottom: 4 }}>Plan Annuel</div>
-                    <div style={{ fontSize: 14, color: '#3B82F6', fontWeight: 600 }}>199 € / an — soit 16,60 € / mois</div>
-                    <div style={{ fontSize: 12, color: '#60A5FA', marginTop: 2 }}>Renouvellement automatique le 15 mars 2026</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-                    <button style={{ background: '#fff', border: '1.5px solid #93C5FD', color: '#2563EB', fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Gérer la facturation</button>
-                    <button style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>Annuler l'abonnement</button>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>{titre}</div>
+                    <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>{desc}</div>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 16 }}>
-                  {['Clients illimités', 'Récompenses illimitées', "QR Code d'inscription", 'Notifications SMS & push', 'Offres anniversaire auto', 'Support 7j/7'].map(f => (
-                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#1E40AF', fontWeight: 500 }}><span style={{ color: '#2563EB', fontWeight: 700 }}>✓</span>{f}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div style={s.card}>
-              <div style={s.cardTitle}>Historique des factures</div>
-              <div style={{ marginTop: 16 }}>
-                {[['15 mars 2025', '199,00 €'], ['15 mars 2024', '199,00 €']].map(([d, m]) => (
-                  <div key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid #F1F5F9', fontSize: 13 }}>
-                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{d}</span>
-                    <span style={{ color: '#64748B' }}>Plan Annuel</span>
-                    <span style={{ color: '#2563EB', fontWeight: 700 }}>{m}</span>
-                    <span style={{ background: '#DCFCE7', color: '#166534', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999 }}>Payée</span>
-                    <span style={{ color: '#94A3B8', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Télécharger</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{ background: '#FEF9C3', border: '1px solid #FDE68A', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-              <div><div style={{ fontSize: 14, fontWeight: 700, color: '#854D0E', marginBottom: 3 }}>Passer au plan mensuel</div><div style={{ fontSize: 13, color: '#92400E' }}>29 € / mois · Sans engagement · Résiliable à tout moment</div></div>
-              <button style={{ background: '#F59E0B', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Changer de plan</button>
-            </div>
-          </>
-        )}
-
-        {/* SECURITE */}
-        {tab === 'Sécurité' && (
-          <>
-            <div style={s.card}>
-              <div style={s.cardTitle}>Sécurité du compte</div>
-              <div style={{ marginTop: 16 }}>
-                {[['Mot de passe', 'Dernière modification il y a 3 mois', 'Modifier le mot de passe', false], ['Double authentification (2FA)', 'Ajoutez une couche de sécurité supplémentaire', 'Activer', false], ['Sessions actives', 'Vous êtes connecté sur 1 appareil', 'Déconnecter tout', true]].map(([l, d, btn, danger]) => (
-                  <div key={l} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid #F1F5F9' }}>
-                    <div><div style={{ fontSize: 14, fontWeight: 600, color: '#0F172A', marginBottom: 3 }}>{l}</div><div style={{ fontSize: 12, color: '#94A3B8' }}>{d}</div></div>
-                    <button style={{ background: '#F8FAFF', border: `1.5px solid ${danger ? '#FECACA' : '#E2E8F0'}`, color: danger ? '#DC2626' : '#475569', fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>{btn}</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{ background: '#FEF2F2', border: '1.5px solid #FECACA', borderRadius: 12, padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-              <div><div style={{ fontSize: 14, fontWeight: 700, color: '#991B1B', marginBottom: 3 }}>Supprimer mon compte</div><div style={{ fontSize: 13, color: '#B91C1C' }}>Toutes vos données seront définitivement supprimées</div></div>
-              <button style={{ background: '#DC2626', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Supprimer</button>
-            </div>
-            <div style={{ background: '#FEF2F2', border: '1.5px solid #FECACA', borderRadius: 12, padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-              <div><div style={{ fontSize: 14, fontWeight: 700, color: '#991B1B', marginBottom: 3 }}>Se déconnecter</div><div style={{ fontSize: 13, color: '#B91C1C' }}>Vous serez redirigé vers la page de connexion</div></div>
-              <button onClick={signOut} style={{ background: '#DC2626', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: '9px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>Se déconnecter</button>
-            </div>
-          </>
-        )}
-
-        {/* LEGAL */}
-        {tab === 'Mentions légales & RGPD' && (
-          <div style={s.card}>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-              {LEGAL_TABS.map(t => <button key={t} style={lTabStyle(t)} onClick={() => setLegalTab(t)}>{t}</button>)}
+              ))}
             </div>
 
-            {legalTab === 'CGU' && <div><h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Conditions Générales d'Utilisation</h2><p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 16 }}>Dernière mise à jour : 1er janvier 2025</p><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>1. Objet</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>Les présentes CGU régissent l'accès et l'utilisation de la plateforme FidèleApp, éditée par FidèleApp SAS, société par actions simplifiée au capital de 10 000 €, immatriculée au RCS de Paris sous le numéro 123 456 789.</p><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>2. Accès au service</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>FidèleApp est accessible à tout commerçant disposant d'un établissement en France. L'accès est conditionné à la création d'un compte et au paiement d'un abonnement.</p><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>3. Résiliation</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75 }}>L'utilisateur peut résilier son abonnement à tout moment depuis « Mon compte ». La résiliation prend effet à l'issue de la période en cours. Aucun remboursement n'est effectué pour la période entamée.</p></div>}
-
-            {legalTab === 'Confidentialité' && <div><h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Politique de confidentialité</h2><p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 16 }}>Dernière mise à jour : 1er janvier 2025</p><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Données collectées</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>FidèleApp collecte : nom, prénom, email, téléphone, adresse du commerce, données de facturation. Ces données sont collectées lors de la création du compte et de l'utilisation du service.</p><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Utilisation des données</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75 }}>Vos données sont utilisées exclusivement pour la gestion de votre compte, l'envoi de notifications et le support client. Vos données ne sont jamais vendues à des tiers.</p></div>}
-
-            {legalTab === 'RGPD' && <div><h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Vos droits RGPD</h2><div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#166534', padding: '3px 10px', marginBottom: 16 }}>✓ FidèleApp est conforme au RGPD</div>
-            {[['D', "Droit d'accès", 'Obtenir une copie de vos données personnelles détenues par FidèleApp'], ['R', 'Droit de rectification', 'Corriger vos données inexactes ou incomplètes'], ['E', "Droit à l'effacement", "Demander la suppression de vos données (droit à l'oubli)"], ['P', 'Droit à la portabilité', 'Recevoir vos données dans un format structuré et lisible'], ['O', "Droit d'opposition", 'Vous opposer au traitement de vos données à des fins de prospection']].map(([d, t, txt]) => (
-              <div key={d} style={{ display: 'flex', gap: 10, marginBottom: 10 }}><span style={{ width: 20, height: 20, background: '#EFF6FF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#2563EB', fontWeight: 800, flexShrink: 0, marginTop: 2 }}>{d}</span><div style={{ fontSize: 13, color: '#475569', lineHeight: 1.65 }}><strong style={{ color: '#0F172A' }}>{t}</strong> — {txt}</div></div>
-            ))}
-            <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginTop: 12 }}>Pour exercer vos droits : <span style={{ color: '#2563EB', fontWeight: 600 }}>rgpd@fidele-app.fr</span></p>
-            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-              <button style={{ background: '#EFF6FF', border: '1.5px solid #93C5FD', color: '#2563EB', fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Télécharger mes données</button>
-              <button style={{ background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#DC2626', fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Demander la suppression</button>
-            </div></div>}
-
-            {legalTab === 'Mentions légales' && <div><h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 16 }}>Mentions légales</h2><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Éditeur</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>FidèleApp SAS — Capital : 10 000 € — RCS Paris : 123 456 789<br/>42 rue du Commerce, 75015 Paris<br/>contact@fidele-app.fr</p><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Hébergement</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75 }}>OVH SAS, 2 rue Kellermann, 59100 Roubaix. Données hébergées en France et en Allemagne, conformes au RGPD.</p></div>}
-
-            {legalTab === 'Cookies' && <div><h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 16 }}>Politique de cookies</h2><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Cookies essentiels</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>Nécessaires au fonctionnement du service. Ne peuvent pas être désactivés.</p><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Cookies analytiques</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 14 }}>Nous utilisons des cookies analytiques anonymisés pour améliorer le service. Vous pouvez les désactiver.</p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFF', border: '1px solid #E8F0FE', borderRadius: 9, padding: '12px 16px' }}>
-              <div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>Cookies analytiques</div><div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Mesure d'audience anonymisée</div></div>
-              <button onClick={() => setCookieOn(v => !v)} style={{ width: 42, height: 24, background: cookieOn ? '#2563EB' : '#E2E8F0', borderRadius: 999, border: 'none', cursor: 'pointer', position: 'relative', transition: 'background .2s' }}>
-                <span style={{ position: 'absolute', top: 3, left: cookieOn ? 21 : 3, width: 18, height: 18, background: '#fff', borderRadius: '50%', transition: 'left .2s', display: 'block' }} />
-              </button>
-            </div></div>}
+            <button
+              onClick={() => setStep('points')}
+              style={{ width: '100%', background: '#2563EB', color: '#fff', border: 'none', fontSize: 15, fontWeight: 700, padding: 14, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Commencer la configuration →
+            </button>
           </div>
         )}
+
+        {/* ÉTAPE 2 — SYSTÈME DE POINTS */}
+        {step === 'points' && (
+          <div>
+            <div style={{ marginBottom: 28 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 6, letterSpacing: -0.5 }}>Système de points</h2>
+              <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6 }}>Combien de points chaque article rapporte à vos clients ? Vous pourrez modifier ça plus tard.</p>
+            </div>
+
+            {/* BONUS BIENVENUE */}
+            <div style={{ background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Bonus de bienvenue</div>
+              <div style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Points offerts automatiquement à chaque nouveau client inscrit</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 9, padding: '10px 14px', width: 'fit-content' }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={bonus}
+                  onChange={e => {
+                    const v = e.target.value.replace(/[^0-9]/g, '')
+                    setBonus(v === '' ? '' : +v)
+                  }}
+                  style={{ border: 'none', background: 'none', fontSize: 22, fontWeight: 800, color: '#0F172A', width: 70, fontFamily: 'inherit', outline: 'none' }}
+                />
+                <span style={{ fontSize: 13, color: '#94A3B8' }}>points offerts à l'inscription</span>
+              </div>
+            </div>
+
+            {/* ARTICLES */}
+            <div style={{ background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '20px 24px', marginBottom: 24 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Articles & catégories</div>
+              <div style={{ fontSize: 13, color: '#64748B', marginBottom: 6, lineHeight: 1.6 }}>Définissez combien de points chaque article rapporte</div>
+              <div style={{ fontSize: 12, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '8px 12px', marginBottom: 20, display: 'inline-block' }}>
+                Ex : Baguette = 5 pts · Coupe femme = 50 pts · Menu du jour = 30 pts
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 36px', gap: 10, padding: '0 14px', marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Article / Catégorie</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Points gagnés</span>
+                <span />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {articles.map(a => (
+                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '1fr 150px 36px', gap: 10, alignItems: 'center', background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '11px 14px' }}>
+                    <input
+                      value={a.nom}
+                      onChange={e => updateArticle(a.id, 'nom', e.target.value)}
+                      placeholder="Ex : Baguette, Café, Coupe homme..."
+                      style={{ border: 'none', background: 'none', fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'inherit', outline: 'none', width: '100%' }}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 7, padding: '6px 10px' }}>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={a.points}
+                        onChange={e => {
+                          const v = e.target.value.replace(/[^0-9]/g, '')
+                          updateArticle(a.id, 'points', v === '' ? '' : +v)
+                        }}
+                        placeholder="0"
+                        style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 800, color: '#2563EB', width: 44, fontFamily: 'inherit', outline: 'none' }}
+                      />
+                      <span style={{ fontSize: 11, color: '#94A3B8' }}>pts</span>
+                    </div>
+                    <button
+                      onClick={() => delArticle(a.id)}
+                      style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#CBD5E1', fontSize: 16, fontWeight: 700 }}
+                    >✕</button>
+                  </div>
+                ))}
+              </div>
+              <button onClick={addArticle} style={{ width: '100%', marginTop: 10, background: 'none', border: '1.5px dashed #BFDBFE', color: '#2563EB', fontSize: 13, fontWeight: 600, padding: 10, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
+                + Ajouter un article ou une catégorie
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setStep('bienvenue')}
+                style={{ flex: 1, background: '#F8FAFF', color: '#475569', border: '1.5px solid #E2E8F0', fontSize: 14, fontWeight: 600, padding: 13, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                ← Retour
+              </button>
+              <button
+                onClick={() => setStep('recompenses')}
+                style={{ flex: 2, background: '#2563EB', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: 13, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Suivant — Récompenses →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ÉTAPE 3 — RÉCOMPENSES */}
+        {step === 'recompenses' && (
+          <div>
+            <div style={{ marginBottom: 28 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 6, letterSpacing: -0.5 }}>Récompenses</h2>
+              <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6 }}>Qu'est-ce que vos clients obtiennent en échangeant leurs points ? Vous pourrez modifier ça plus tard.</p>
+            </div>
+
+            <div style={{ background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '20px 24px', marginBottom: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 36px', gap: 10, padding: '0 14px', marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Récompense</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>Points nécessaires</span>
+                <span />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {rewards.map(r => (
+                  <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '1fr 180px 36px', gap: 10, alignItems: 'center', background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '11px 14px' }}>
+                    <input
+                      value={r.nom}
+                      onChange={e => updateReward(r.id, 'nom', e.target.value)}
+                      placeholder="Ex : Café offert, Remise 5€..."
+                      style={{ border: 'none', background: 'none', fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'inherit', outline: 'none', width: '100%' }}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 7, padding: '6px 10px' }}>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={r.points_requis}
+                        onChange={e => {
+                          const v = e.target.value.replace(/[^0-9]/g, '')
+                          updateReward(r.id, 'points_requis', v === '' ? '' : +v)
+                        }}
+                        placeholder="0"
+                        style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 800, color: '#2563EB', width: 60, fontFamily: 'inherit', outline: 'none' }}
+                      />
+                      <span style={{ fontSize: 11, color: '#94A3B8' }}>pts</span>
+                    </div>
+                    <button
+                      onClick={() => delReward(r.id)}
+                      style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: '#CBD5E1', fontSize: 16, fontWeight: 700 }}
+                    >✕</button>
+                  </div>
+                ))}
+              </div>
+              <button onClick={addReward} style={{ width: '100%', marginTop: 10, background: 'none', border: '1.5px dashed #BFDBFE', color: '#2563EB', fontSize: 13, fontWeight: 600, padding: 10, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
+                + Ajouter une récompense
+              </button>
+            </div>
+
+            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: 13, color: '#166534', fontWeight: 500, lineHeight: 1.6 }}>
+              💡 Vous pouvez passer cette étape et configurer vos récompenses plus tard depuis le dashboard.
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setStep('points')}
+                style={{ flex: 1, background: '#F8FAFF', color: '#475569', border: '1.5px solid #E2E8F0', fontSize: 14, fontWeight: 600, padding: 13, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                ← Retour
+              </button>
+              <button
+                onClick={finish}
+                disabled={loading}
+                style={{ flex: 2, background: '#16A34A', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: 13, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                {loading ? 'Sauvegarde...' : '🚀 Accéder à mon dashboard →'}
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
