@@ -12,9 +12,7 @@ export default function ClientCard() {
 
   useEffect(() => {
     const clientData = sessionStorage.getItem('client_data')
-    const commercantData = sessionStorage.getItem('commercant_data')
     if (clientData) setClient(JSON.parse(clientData))
-    if (commercantData) setCommercant(JSON.parse(commercantData))
     setLoading(false)
   }, [])
 
@@ -23,15 +21,19 @@ export default function ClientCard() {
   }, [client])
 
   async function loadData() {
-    const [rewRes, txRes, clientRes] = await Promise.all([
+    const [rewRes, txRes, clientRes, commRes] = await Promise.all([
       supabase.from('recompenses').select('*').eq('commercant_id', client.commercant_id).eq('actif', true).order('points_requis'),
       supabase.from('transactions').select('*').eq('client_id', client.id).order('created_at', { ascending: false }).limit(10),
       supabase.from('clients').select('points').eq('id', client.id).single(),
+      supabase.from('commercants').select('*').eq('id', client.commercant_id).single(),
     ])
     setRecompenses(rewRes.data || [])
     setTransactions(txRes.data || [])
     if (clientRes.data) {
       setClient(prev => ({ ...prev, points: clientRes.data.points }))
+    }
+    if (commRes.data) {
+      setCommercant(commRes.data)
     }
   }
 
