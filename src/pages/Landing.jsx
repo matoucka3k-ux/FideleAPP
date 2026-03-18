@@ -226,7 +226,6 @@ export default function Landing() {
 
               {/* Main */}
               <div style={{ flex: 1, padding: '20px 22px', background: '#f8fafc', overflowX: 'hidden' }}>
-                {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                   <div>
                     <div style={{ fontSize: 18, fontWeight: 700, color: '#1e293b' }}>Tableau de bord</div>
@@ -243,7 +242,6 @@ export default function Landing() {
                   </div>
                 </div>
 
-                {/* Metrics */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
                   {DASH_METRICS.map(m => (
                     <div key={m.label} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', border: '1px solid #f0f2f5' }}>
@@ -254,7 +252,6 @@ export default function Landing() {
                   ))}
                 </div>
 
-                {/* Charts */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                   <div style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', border: '1px solid #f0f2f5' }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1e293b', marginBottom: 2 }}>Évolution des clients fidèles</div>
@@ -285,7 +282,6 @@ export default function Landing() {
                   </div>
                 </div>
 
-                {/* Transactions */}
                 <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #f0f2f5', overflow: 'hidden' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #f0f2f5' }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1e293b' }}>Dernières transactions</div>
@@ -305,16 +301,7 @@ export default function Landing() {
                           <span style={{ fontSize: 11, color: '#64748b' }}>{c.desc}</span>
                         </div>
                         <div key={c.name+'t'} style={{ padding: '8px 12px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
-                          <span style={{
-                            fontSize: 11,
-                            background: c.typeColor + '22',
-                            color: c.typeColor,
-                            padding: '2px 8px',
-                            borderRadius: 20,
-                            fontWeight: 600,
-                            fontFamily: c.type === 'bonus_bienvenue' ? 'monospace' : 'inherit',
-                            letterSpacing: c.type === 'bonus_bienvenue' ? '-0.3px' : 'normal',
-                          }}>{c.type}</span>
+                          <span style={{ fontSize: 11, background: c.typeColor + '22', color: c.typeColor, padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{c.type}</span>
                         </div>
                         <div key={c.name+'p'} style={{ padding: '8px 12px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 12, color: c.ptColor, fontWeight: 700 }}>{c.pts}</span>
