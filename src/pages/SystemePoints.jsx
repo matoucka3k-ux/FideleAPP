@@ -23,7 +23,6 @@ export default function SystemePoints() {
       supabase.from('recompenses').select('*').eq('commercant_id', user.id).order('points_requis'),
       supabase.from('commercants').select('bonus_bienvenue').eq('id', user.id).single(),
     ])
-    // On remplace toujours par ce qui vient de Supabase, même si vide
     setArticles(catsRes.data ? catsRes.data.map(c => ({ id: c.id, nom: c.nom, points: c.points_par_euro, actif: c.actif })) : [])
     setRewards(rewsRes.data ? rewsRes.data.map(r => ({ id: r.id, nom: r.nom, points_requis: r.points_requis })) : [])
     if (commRes.data) setBonus(commRes.data.bonus_bienvenue)
@@ -33,7 +32,7 @@ export default function SystemePoints() {
   async function save() {
     setLoading(true)
     try {
-      await supabase.from('commercants').update({ bonus_bienvenue: bonus }).eq('id', user.id)
+      await supabase.from('commercants').update({ bonus_bienvenue: bonus || 0 }).eq('id', user.id)
 
       await supabase.from('categories').delete().eq('commercant_id', user.id)
       const validArticles = articles.filter(a => a.nom.trim())
@@ -42,7 +41,7 @@ export default function SystemePoints() {
           validArticles.map(a => ({
             commercant_id: user.id,
             nom: a.nom,
-            points_par_euro: a.points,
+            points_par_euro: a.points || 0,
             actif: a.actif
           }))
         )
@@ -55,12 +54,12 @@ export default function SystemePoints() {
           validRews.map(r => ({
             commercant_id: user.id,
             nom: r.nom,
-            points_requis: r.points_requis
+            points_requis: r.points_requis || 0
           }))
         )
       }
 
-      await loadData() // ← recharge depuis Supabase après sauvegarde
+      await loadData()
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (e) {
@@ -72,14 +71,14 @@ export default function SystemePoints() {
   }
 
   const addArticle = () => {
-    setArticles(a => [...a, { id: nextId, nom: '', points: 10, actif: true }])
+    setArticles(a => [...a, { id: nextId, nom: '', points: '', actif: true }])
     setNextId(n => n + 1)
   }
   const delArticle = (id) => setArticles(a => a.filter(x => x.id !== id))
   const updateArticle = (id, f, v) => setArticles(a => a.map(x => x.id === id ? { ...x, [f]: v } : x))
 
   const addReward = () => {
-    setRewards(r => [...r, { id: nextId, nom: '', points_requis: 100 }])
+    setRewards(r => [...r, { id: nextId, nom: '', points_requis: '' }])
     setNextId(n => n + 1)
   }
   const delReward = (id) => setRewards(r => r.filter(x => x.id !== id))
@@ -96,7 +95,6 @@ export default function SystemePoints() {
   return (
     <div style={{ minHeight: '100vh', background: '#F8FAFF' }}>
 
-      {/* TOPBAR */}
       <div style={{ background: '#fff', borderBottom: '1px solid #E8F0FE', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#0F172A' }}>Système de points</div>
@@ -115,8 +113,13 @@ export default function SystemePoints() {
           <div style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Points offerts automatiquement à chaque nouveau client inscrit</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F8FAFF', border: '1.5px solid #E2E8F0', borderRadius: 9, padding: '10px 14px', width: 'fit-content' }}>
             <input
-              type="number" min="0" value={bonus}
-              onChange={e => setBonus(+e.target.value)}
+              type="text"
+              inputMode="numeric"
+              value={bonus}
+              onChange={e => {
+                const v = e.target.value.replace(/[^0-9]/g, '')
+                setBonus(v === '' ? '' : +v)
+              }}
               style={{ border: 'none', background: 'none', fontSize: 22, fontWeight: 800, color: '#0F172A', width: 70, fontFamily: 'inherit', outline: 'none' }}
             />
             <span style={{ fontSize: 13, color: '#94A3B8' }}>points offerts à l'inscription</span>
@@ -162,8 +165,14 @@ export default function SystemePoints() {
                 />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 7, padding: '6px 10px' }}>
                   <input
-                    type="number" min="1" value={a.points}
-                    onChange={e => updateArticle(a.id, 'points', +e.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    value={a.points}
+                    onChange={e => {
+                      const v = e.target.value.replace(/[^0-9]/g, '')
+                      updateArticle(a.id, 'points', v === '' ? '' : +v)
+                    }}
+                    placeholder="0"
                     style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 800, color: '#2563EB', width: 44, fontFamily: 'inherit', outline: 'none' }}
                   />
                   <span style={{ fontSize: 11, color: '#94A3B8' }}>pts</span>
@@ -214,8 +223,14 @@ export default function SystemePoints() {
                 />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 7, padding: '6px 10px' }}>
                   <input
-                    type="number" min="1" value={r.points_requis}
-                    onChange={e => updateReward(r.id, 'points_requis', +e.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    value={r.points_requis}
+                    onChange={e => {
+                      const v = e.target.value.replace(/[^0-9]/g, '')
+                      updateReward(r.id, 'points_requis', v === '' ? '' : +v)
+                    }}
+                    placeholder="0"
                     style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 800, color: '#2563EB', width: 60, fontFamily: 'inherit', outline: 'none' }}
                   />
                   <span style={{ fontSize: 11, color: '#94A3B8' }}>points</span>
@@ -248,12 +263,12 @@ export default function SystemePoints() {
           </div>
           <div style={{ background: '#2563EB', borderRadius: 12, padding: '16px 20px', color: '#fff', minWidth: 200 }}>
             <div style={{ fontSize: 10, opacity: .7, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Exemple client</div>
-            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1, marginBottom: 8 }}>{bonus} pts</div>
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1, marginBottom: 8 }}>{bonus || 0} pts</div>
             <div style={{ background: 'rgba(255,255,255,.2)', borderRadius: 999, height: 4, marginBottom: 5 }}>
-              <div style={{ background: '#fff', borderRadius: 999, height: 4, width: firstReward ? `${Math.min(100, (bonus / firstReward.points_requis) * 100)}%` : '0%' }} />
+              <div style={{ background: '#fff', borderRadius: 999, height: 4, width: firstReward ? `${Math.min(100, ((bonus || 0) / firstReward.points_requis) * 100)}%` : '0%' }} />
             </div>
             <div style={{ fontSize: 11, opacity: .75 }}>
-              {firstReward ? `Encore ${Math.max(0, firstReward.points_requis - bonus)} pts → ${firstReward.nom}` : '—'}
+              {firstReward ? `Encore ${Math.max(0, firstReward.points_requis - (bonus || 0))} pts → ${firstReward.nom}` : '—'}
             </div>
           </div>
         </div>
