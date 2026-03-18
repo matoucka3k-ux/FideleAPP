@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth } from '../lib/AuthContext.jsx'
 
 const TABS = ['Profil', 'Abonnement', 'Sécurité', 'Mentions légales & RGPD']
 const LEGAL_TABS = ['CGU', 'Confidentialité', 'RGPD', 'Mentions légales', 'Cookies']
@@ -15,13 +16,43 @@ const s = {
 }
 
 export default function MonCompte() {
+  const { commercant, signOut, updateCommercant } = useAuth()
   const [tab, setTab] = useState('Profil')
   const [legalTab, setLegalTab] = useState('CGU')
   const [editing, setEditing] = useState(false)
   const [saved, setSaved] = useState(false)
   const [cookieOn, setCookieOn] = useState(true)
+  const [form, setForm] = useState(null)
 
-  const saveProfile = () => { setEditing(false); setSaved(true); setTimeout(() => setSaved(false), 2000) }
+  const startEditing = () => {
+    setForm({
+      prenom: commercant?.nom_complet?.split(' ')[0] ?? '',
+      nom: commercant?.nom_complet?.split(' ').slice(1).join(' ') ?? '',
+      nom_commerce: commercant?.nom_commerce ?? '',
+      email: commercant?.email ?? '',
+      telephone: commercant?.telephone ?? '',
+      adresse: commercant?.adresse ?? '',
+    })
+    setEditing(true)
+  }
+
+  const saveProfile = async () => {
+    try {
+      await updateCommercant({
+        nom_complet: `${form.prenom} ${form.nom}`.trim(),
+        nom_commerce: form.nom_commerce,
+        telephone: form.telephone,
+        adresse: form.adresse,
+      })
+      setEditing(false)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      alert('Erreur lors de la sauvegarde : ' + e.message)
+    }
+  }
+
+  const initiales = commercant?.nom_complet?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() ?? '?'
 
   const tabStyle = (t) => ({
     padding: '8px 18px', borderRadius: 8, border: tab === t ? '1px solid #E8F0FE' : 'none',
@@ -36,6 +67,22 @@ export default function MonCompte() {
   })
 
   const inp = (disabled) => ({ border: `1.5px solid ${disabled ? '#F1F5F9' : '#E2E8F0'}`, borderRadius: 8, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit', color: '#0F172A', outline: 'none', background: disabled ? '#F8FAFF' : '#fff', width: '100%' })
+
+  const fields = editing && form ? [
+    ['Prénom', 'prenom', false],
+    ['Nom', 'nom', false],
+    ['Nom du commerce', 'nom_commerce', true],
+    ['Email', 'email', false, true],
+    ['Téléphone', 'telephone', false],
+    ['Adresse', 'adresse', true],
+  ] : [
+    ['Prénom', commercant?.nom_complet?.split(' ')[0] ?? '', false],
+    ['Nom', commercant?.nom_complet?.split(' ').slice(1).join(' ') ?? '', false],
+    ['Nom du commerce', commercant?.nom_commerce ?? '', true],
+    ['Email', commercant?.email ?? '', false],
+    ['Téléphone', commercant?.telephone ?? '', false],
+    ['Adresse', commercant?.adresse ?? '', true],
+  ]
 
   return (
     <div style={s.page}>
@@ -54,21 +101,38 @@ export default function MonCompte() {
             <div style={s.card}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                 <div style={s.cardTitle}>Informations du commerce</div>
-                <button onClick={() => editing ? saveProfile() : setEditing(true)} style={{ background: editing ? '#2563EB' : '#F8FAFF', color: editing ? '#fff' : '#475569', border: '1.5px solid #E2E8F0', fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button onClick={() => editing ? saveProfile() : startEditing()} style={{ background: editing ? '#2563EB' : '#F8FAFF', color: editing ? '#fff' : '#475569', border: '1.5px solid #E2E8F0', fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {editing ? 'Enregistrer' : 'Modifier'}
                 </button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#2563EB', color: '#fff', fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>PM</div>
-                <div><div style={{ fontSize: 18, fontWeight: 800, color: '#0F172A' }}>Pierre Martin</div><div style={{ fontSize: 13, color: '#94A3B8' }}>pierre.martin@boulangerieMartin.fr</div></div>
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#2563EB', color: '#fff', fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initiales}</div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#0F172A' }}>{commercant?.nom_complet ?? ''}</div>
+                  <div style={{ fontSize: 13, color: '#94A3B8' }}>{commercant?.email ?? ''}</div>
+                </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                {[['Prénom', 'Pierre'], ['Nom', 'Martin'], ['Nom du commerce', 'Boulangerie Martin', true], ['Email', 'pierre.martin@boulangerieMartin.fr'], ['Téléphone', '06 12 34 56 78'], ['Adresse', '12 rue de la République, 69003 Lyon', true]].map(([l, v, full]) => (
-                  <div key={l} style={{ gridColumn: full ? '1/-1' : 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>{l}</label>
-                    <input defaultValue={v} disabled={!editing} style={inp(!editing)} />
-                  </div>
-                ))}
+                {editing && form ? (
+                  fields.map(([label, key, full, disabled]) => (
+                    <div key={label} style={{ gridColumn: full ? '1/-1' : 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</label>
+                      <input
+                        value={form[key]}
+                        disabled={disabled}
+                        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                        style={inp(disabled)}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  fields.map(([label, value, full]) => (
+                    <div key={label} style={{ gridColumn: full ? '1/-1' : 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</label>
+                      <input defaultValue={value} disabled style={inp(true)} />
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </>
@@ -93,7 +157,7 @@ export default function MonCompte() {
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 16 }}>
-                  {['Clients illimités', 'Récompenses illimitées', 'QR Code d\'inscription', 'Notifications SMS & push', 'Offres anniversaire auto', 'Support 7j/7'].map(f => (
+                  {['Clients illimités', 'Récompenses illimitées', "QR Code d'inscription", 'Notifications SMS & push', 'Offres anniversaire auto', 'Support 7j/7'].map(f => (
                     <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#1E40AF', fontWeight: 500 }}><span style={{ color: '#2563EB', fontWeight: 700 }}>✓</span>{f}</div>
                   ))}
                 </div>
@@ -140,7 +204,7 @@ export default function MonCompte() {
             </div>
             <div style={{ background: '#FEF2F2', border: '1.5px solid #FECACA', borderRadius: 12, padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
               <div><div style={{ fontSize: 14, fontWeight: 700, color: '#991B1B', marginBottom: 3 }}>Se déconnecter</div><div style={{ fontSize: 13, color: '#B91C1C' }}>Vous serez redirigé vers la page de connexion</div></div>
-              <button style={{ background: '#DC2626', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: '9px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>Se déconnecter</button>
+              <button onClick={signOut} style={{ background: '#DC2626', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: '9px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>Se déconnecter</button>
             </div>
           </>
         )}
@@ -157,7 +221,7 @@ export default function MonCompte() {
             {legalTab === 'Confidentialité' && <div><h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Politique de confidentialité</h2><p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 16 }}>Dernière mise à jour : 1er janvier 2025</p><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Données collectées</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>FidèleApp collecte : nom, prénom, email, téléphone, adresse du commerce, données de facturation. Ces données sont collectées lors de la création du compte et de l'utilisation du service.</p><h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Utilisation des données</h3><p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75 }}>Vos données sont utilisées exclusivement pour la gestion de votre compte, l'envoi de notifications et le support client. Vos données ne sont jamais vendues à des tiers.</p></div>}
 
             {legalTab === 'RGPD' && <div><h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Vos droits RGPD</h2><div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#166534', padding: '3px 10px', marginBottom: 16 }}>✓ FidèleApp est conforme au RGPD</div>
-            {[['D', 'Droit d\'accès', 'Obtenir une copie de vos données personnelles détenues par FidèleApp'], ['R', 'Droit de rectification', 'Corriger vos données inexactes ou incomplètes'], ['E', 'Droit à l\'effacement', 'Demander la suppression de vos données (droit à l\'oubli)'], ['P', 'Droit à la portabilité', 'Recevoir vos données dans un format structuré et lisible'], ['O', 'Droit d\'opposition', 'Vous opposer au traitement de vos données à des fins de prospection']].map(([d, t, txt]) => (
+            {[['D', "Droit d'accès", 'Obtenir une copie de vos données personnelles détenues par FidèleApp'], ['R', 'Droit de rectification', 'Corriger vos données inexactes ou incomplètes'], ['E', "Droit à l'effacement", "Demander la suppression de vos données (droit à l'oubli)"], ['P', 'Droit à la portabilité', 'Recevoir vos données dans un format structuré et lisible'], ['O', "Droit d'opposition", 'Vous opposer au traitement de vos données à des fins de prospection']].map(([d, t, txt]) => (
               <div key={d} style={{ display: 'flex', gap: 10, marginBottom: 10 }}><span style={{ width: 20, height: 20, background: '#EFF6FF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#2563EB', fontWeight: 800, flexShrink: 0, marginTop: 2 }}>{d}</span><div style={{ fontSize: 13, color: '#475569', lineHeight: 1.65 }}><strong style={{ color: '#0F172A' }}>{t}</strong> — {txt}</div></div>
             ))}
             <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginTop: 12 }}>Pour exercer vos droits : <span style={{ color: '#2563EB', fontWeight: 600 }}>rgpd@fidele-app.fr</span></p>
