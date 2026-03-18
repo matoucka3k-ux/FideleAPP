@@ -18,12 +18,17 @@ export default function DashboardLayout() {
     navigate('/')
   }
 
+  const handleLogoClick = () => {
+    navigate('/dashboard')
+    window.location.reload()
+  }
+
   const initiales = commercant?.nom_complet?.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2) || 'FA'
 
   return (
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
-        <div className={styles.logo} onClick={() => navigate('/')} style={{cursor:'pointer'}}>
+        <div className={styles.logo} onClick={handleLogoClick} style={{cursor:'pointer'}}>
           <div className={styles.logoMark}>
             <svg viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="2"><path d="M8 2C5 2 3 4 3 6.5c0 3.5 5 7.5 5 7.5s5-4 5-7.5C13 4 11 2 8 2z"/></svg>
           </div>
