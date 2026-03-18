@@ -76,25 +76,33 @@ export default function Encaisser() {
   useEffect(() => { if (user) loadCats() }, [user])
 
   async function loadClients() {
-    const { data } = await supabase.from('clients').select('*').eq('commercant_id', user.id).order('created_at', { ascending: false })
+    const { data } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('commercant_id', user.id)
+      .order('created_at', { ascending: false })
     setClients(data || [])
   }
 
   async function loadCats() {
-    const { data } = await supabase.from('categories').select('*').eq('commercant_id', user.id).eq('actif', true)
+    const { data } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('commercant_id', user.id)
+      .eq('actif', true)
+      .order('created_at')
+
     if (data && data.length > 0) {
-      setCats([{ nom: 'Tout', articles: data }, ...data.map(d => ({ nom: d.nom, articles: [d] }))])
+      // Chaque ligne = un article créé par le commerçant
+      const articles = data.map(d => ({
+        id: d.id,
+        nom: d.nom,
+        points_par_euro: d.points_par_euro,
+      }))
+      setCats([{ nom: 'Tout', articles }])
     } else {
-      setCats([
-        { nom: 'Tout', articles: [
-          { nom: 'Baguette', points_par_euro: 1, prix: '1,10€' },
-          { nom: 'Croissant', points_par_euro: 2, prix: '1,20€' },
-          { nom: 'Pain complet', points_par_euro: 2, prix: '1,80€' },
-          { nom: 'Brioche', points_par_euro: 3, prix: '2,50€' },
-          { nom: 'Éclair', points_par_euro: 3, prix: '2,80€' },
-          { nom: 'Café', points_par_euro: 1, prix: '1,50€' },
-        ]},
-      ])
+      // Aucun article configuré → message vide
+      setCats([{ nom: 'Tout', articles: [] }])
     }
   }
 
@@ -112,9 +120,9 @@ export default function Encaisser() {
     })
   }
 
-  const total = panier.reduce((s, a) => s + (a.points_par_euro || 1), 0)
+  const total = panier.reduce((s, a) => s + (a.points_par_euro || 0), 0)
   const grouped = panier.reduce((acc, a) => {
-    acc[a.nom] = acc[a.nom] || { pts: a.points_par_euro || 1, cnt: 0 }
+    acc[a.nom] = acc[a.nom] || { pts: a.points_par_euro || 0, cnt: 0 }
     acc[a.nom].cnt++
     return acc
   }, {})
@@ -154,7 +162,10 @@ export default function Encaisser() {
           <div className={styles.succRecap}>
             <div className={styles.recapTitle}>Articles encaissés</div>
             {Object.entries(grouped).map(([n, g]) => (
-              <div key={n} className={styles.recapRow}><span>{n}{g.cnt > 1 ? ` ×${g.cnt}` : ''}</span><span>+{g.pts * g.cnt} pts</span></div>
+              <div key={n} className={styles.recapRow}>
+                <span>{n}{g.cnt > 1 ? ` ×${g.cnt}` : ''}</span>
+                <span>+{g.pts * g.cnt} pts</span>
+              </div>
             ))}
           </div>
           <button className={styles.btnBlue} onClick={() => { setState('home'); setClient(null); setSearch('') }}>
@@ -168,7 +179,10 @@ export default function Encaisser() {
   if (state === 'caisse') return (
     <div className={styles.page}>
       <div className={styles.topbar}>
-        <div><div className={styles.title}>Encaissement — {client?.nom_complet}</div><div className={styles.sub}>Ajoutez les articles et validez</div></div>
+        <div>
+          <div className={styles.title}>Encaissement — {client?.nom_complet}</div>
+          <div className={styles.sub}>Ajoutez les articles et validez</div>
+        </div>
         <button className={styles.btnBack} onClick={() => setState('home')}>← Retour</button>
       </div>
       <div className={styles.content}>
@@ -176,35 +190,47 @@ export default function Encaisser() {
           <div>
             <div className={styles.clientMini}>
               <div className={styles.cmAv} style={{background:'#2563EB'}}>{client?.nom_complet?.[0]}</div>
-              <div><div className={styles.cmName}>{client?.nom_complet}</div><div className={styles.cmEmail}>{client?.email || client?.telephone}</div></div>
+              <div>
+                <div className={styles.cmName}>{client?.nom_complet}</div>
+                <div className={styles.cmEmail}>{client?.email || client?.telephone}</div>
+              </div>
             </div>
             <div className={styles.ptsBig}>
               <div className={styles.ptsBigLbl}>Points actuels</div>
               <div className={styles.ptsBigVal}>{client?.points?.toLocaleString()}</div>
-              <div className={styles.ptsBarBg}><div className={styles.ptsBarFill} style={{width:`${Math.min(100,(client.points/1000)*100)}%`}} /></div>
+              <div className={styles.ptsBarBg}>
+                <div className={styles.ptsBarFill} style={{width:`${Math.min(100,(client.points/1000)*100)}%`}} />
+              </div>
             </div>
           </div>
           <div className={styles.card}>
             <div className={styles.cardTitle} style={{marginBottom:14}}>Articles achetés</div>
-            <div className={styles.catPills}>
-              {cats.map((c, i) => <button key={c.nom} className={`${styles.catPill} ${i===selCat?styles.catActive:''}`} onClick={()=>setSelCat(i)}>{c.nom}</button>)}
-            </div>
-            <div className={styles.artsGrid}>
-              {allArts.map((a, i) => {
-                const cnt = panier.filter(p => p.nom === a.nom).length
-                return (
-                  <button key={i} className={`${styles.artBtn} ${cnt>0?styles.artSel:''}`} onClick={()=>addArt(a)}>
-                    {cnt > 0 && <div className={styles.artCount}>×{cnt}</div>}
-                    <div className={styles.artName}>{a.nom}</div>
-                    <div className={styles.artPts}>+{a.points_par_euro||1} pt{(a.points_par_euro||1)>1?'s':''}</div>
-                    {a.prix && <div className={styles.artPrice}>{a.prix}</div>}
-                  </button>
-                )
-              })}
-            </div>
+
+            {allArts.length === 0 ? (
+              <div style={{fontSize:13,color:'#94A3B8',textAlign:'center',padding:'24px 0',lineHeight:1.6}}>
+                Aucun article configuré.<br/>
+                <span style={{color:'#2563EB',fontWeight:600}}>Ajoutez vos articles dans "Système de points".</span>
+              </div>
+            ) : (
+              <div className={styles.artsGrid}>
+                {allArts.map((a) => {
+                  const cnt = panier.filter(p => p.nom === a.nom).length
+                  return (
+                    <button key={a.id} className={`${styles.artBtn} ${cnt>0?styles.artSel:''}`} onClick={()=>addArt(a)}>
+                      {cnt > 0 && <div className={styles.artCount}>×{cnt}</div>}
+                      <div className={styles.artName}>{a.nom}</div>
+                      <div className={styles.artPts}>+{a.points_par_euro} pt{a.points_par_euro>1?'s':''}</div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
             <div className={styles.panier}>
               <div className={styles.panTitle}>Panier</div>
-              {panier.length === 0 ? <div className={styles.panEmpty}>Aucun article ajouté</div> : (
+              {panier.length === 0 ? (
+                <div className={styles.panEmpty}>Aucun article ajouté</div>
+              ) : (
                 <>
                   {Object.entries(grouped).map(([n, g]) => (
                     <div key={n} className={styles.panRow}>
@@ -213,7 +239,10 @@ export default function Encaisser() {
                       <button className={styles.panDel} onClick={()=>removeGroup(n)}>✕</button>
                     </div>
                   ))}
-                  <div className={styles.panTotal}><span>Points à créditer</span><span className={styles.panTotalPts}>+{total} pts</span></div>
+                  <div className={styles.panTotal}>
+                    <span>Points à créditer</span>
+                    <span className={styles.panTotalPts}>+{total} pts</span>
+                  </div>
                 </>
               )}
             </div>
@@ -229,7 +258,10 @@ export default function Encaisser() {
   return (
     <div className={styles.page}>
       <div className={styles.topbar}>
-        <div><div className={styles.title}>Encaisser</div><div className={styles.sub}>QR Code boutique + recherche client</div></div>
+        <div>
+          <div className={styles.title}>Encaisser</div>
+          <div className={styles.sub}>QR Code boutique + recherche client</div>
+        </div>
       </div>
       <div className={styles.content}>
         <div className={styles.twoCol}>
