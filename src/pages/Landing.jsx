@@ -25,7 +25,7 @@ const DASH_METRICS = [
 
 const DASH_CLIENTS = [
   { ini: 'AM', name: 'Alice M.', desc: 'Menu du jour ×2', pts: '+92 pts', type: 'Achat', typeColor: '#22c55e', ptColor: '#16a34a' },
-  { ini: 'LB', name: 'Louise B.', desc: 'Bonus de bienvenue', pts: '+50 pts', type: 'bonus_bienvenue', typeColor: '#6366f1', ptColor: '#4f46e5' },
+  { ini: 'LB', name: 'Louise B.', desc: 'Bonus de bienvenue', pts: '+50 pts', type: 'Bonus bienvenue', typeColor: '#6366f1', ptColor: '#4f46e5' },
   { ini: 'FB', name: 'Florian B.', desc: 'Café offert', pts: '-100 pts', type: 'Échange', typeColor: '#f59e0b', ptColor: '#ef4444' },
   { ini: 'DM', name: 'David M.', desc: 'Kebab avec menu ×3', pts: '+74 pts', type: 'Achat', typeColor: '#22c55e', ptColor: '#16a34a' },
 ]
@@ -166,7 +166,6 @@ export default function Landing() {
             overflow: 'hidden', border: '1px solid #e8edf2',
             maxWidth: 900, margin: '0 auto',
           }}>
-            {/* Barre macOS */}
             <div style={{
               background: '#f4f5f7', borderBottom: '1px solid #e2e6ea',
               padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8,
@@ -179,42 +178,25 @@ export default function Landing() {
             </div>
 
             <div style={{ display: 'flex', minHeight: 500, position: 'relative' }}>
-              {/* Sidebar */}
-              <div style={{
-                width: 195, background: '#fff', borderRight: '1px solid #f0f2f5',
-                padding: '20px 0', flexShrink: 0, display: 'flex', flexDirection: 'column',
-              }}>
+              <div style={{ width: 195, background: '#fff', borderRight: '1px solid #f0f2f5', padding: '20px 0', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px 20px' }}>
                   <div style={{ width: 28, height: 28, borderRadius: 8, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="2" style={{ width: 14, height: 14 }}><path d="M8 2C5 2 3 4 3 6.5c0 3.5 5 7.5 5 7.5s5-4 5-7.5C13 4 11 2 8 2z"/></svg>
                   </div>
                   <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>FidèleApp</span>
                 </div>
-
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', padding: '0 16px 6px', letterSpacing: 1 }}>MENU</div>
                 {NAV_ITEMS.map(item => (
-                  <div key={item.label} style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '7px 12px', margin: '1px 8px', borderRadius: 8,
-                    background: item.active ? '#eff6ff' : 'transparent',
-                    color: item.active ? '#2563eb' : '#64748b',
-                    fontWeight: item.active ? 600 : 400, fontSize: 13,
-                  }}>
+                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', margin: '1px 8px', borderRadius: 8, background: item.active ? '#eff6ff' : 'transparent', color: item.active ? '#2563eb' : '#64748b', fontWeight: item.active ? 600 : 400, fontSize: 13 }}>
                     <span style={{ color: item.active ? '#2563eb' : '#94a3b8', display: 'flex' }}>{item.icon}</span>
                     {item.label}
                   </div>
                 ))}
-
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', padding: '12px 16px 6px', letterSpacing: 1 }}>PARAMÈTRES</div>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '7px 12px', margin: '1px 8px', borderRadius: 8,
-                  color: '#64748b', fontSize: 13,
-                }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', margin: '1px 8px', borderRadius: 8, color: '#64748b', fontSize: 13 }}>
                   <span style={{ color: '#94a3b8', display: 'flex' }}><IconCompte /></span>
                   Mon compte
                 </div>
-
                 <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', borderTop: '1px solid #f0f2f5' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>CP</div>
                   <div style={{ minWidth: 0 }}>
@@ -224,7 +206,6 @@ export default function Landing() {
                 </div>
               </div>
 
-              {/* Main */}
               <div style={{ flex: 1, padding: '20px 22px', background: '#f8fafc', overflowX: 'hidden' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                   <div>
@@ -233,11 +214,7 @@ export default function Landing() {
                   </div>
                   <div style={{ display: 'flex', gap: 4, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 3 }}>
                     {['Jour', 'Semaine', 'Mois'].map((t, i) => (
-                      <div key={t} style={{
-                        padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                        background: i === 1 ? '#2563eb' : 'transparent',
-                        color: i === 1 ? '#fff' : '#64748b',
-                      }}>{t}</div>
+                      <div key={t} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 500, background: i === 1 ? '#2563eb' : 'transparent', color: i === 1 ? '#fff' : '#64748b' }}>{t}</div>
                     ))}
                   </div>
                 </div>
@@ -272,11 +249,7 @@ export default function Landing() {
                     <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Par semaine</div>
                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 65, padding: '0 2px' }}>
                       {BAR_DATA.map((h, i) => (
-                        <div key={i} style={{
-                          flex: 1, borderRadius: 3,
-                          background: i === BAR_DATA.length - 1 ? '#2563eb' : '#bfdbfe',
-                          height: `${h}%`,
-                        }} />
+                        <div key={i} style={{ flex: 1, borderRadius: 3, background: i === BAR_DATA.length - 1 ? '#2563eb' : '#bfdbfe', height: `${h}%` }} />
                       ))}
                     </div>
                   </div>
