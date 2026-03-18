@@ -24,7 +24,6 @@ export default function Encaisser() {
   useEffect(() => {
     setFiltered(clients.filter(c => c.nom_complet.toLowerCase().includes(search.toLowerCase())))
   }, [search, clients])
-
   useEffect(() => { if (user) loadCats() }, [user])
 
   async function loadClients() {
@@ -186,7 +185,6 @@ export default function Encaisser() {
       <div className={styles.content}>
         <div className={styles.twoCol}>
 
-          {/* QR CODE BOUTIQUE — inchangé */}
           <div className={`${styles.card} ${styles.qrCard}`}>
             <div className={styles.qrBadge}>QR Code de votre boutique</div>
             <div className={styles.qrTitle}>Affichage en boutique — Inscription clients</div>
@@ -205,7 +203,6 @@ export default function Encaisser() {
             </div>
           </div>
 
-          {/* RECHERCHE CLIENT — scanner supprimé */}
           <div className={styles.card}>
             <div className={styles.cardTitle} style={{marginBottom:4}}>Trouver un client</div>
             <div className={styles.cardSub} style={{marginBottom:14}}>Recherchez votre client par nom ou téléphone</div>
