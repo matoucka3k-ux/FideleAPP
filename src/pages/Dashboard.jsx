@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ clients: 0, visites: 0, points: 0, recompenses: 0 })
   const [clients, setClients] = useState([])
   const [rewardData, setRewardData] = useState([])
+  const [areaData, setAreaData] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,15 +23,13 @@ export default function Dashboard() {
   async function loadData() {
     setLoading(true)
     try {
-      const [clientsRes, transactionsRes, recompensesRes] = await Promise.all([
+      const [clientsRes, transactionsRes] = await Promise.all([
         supabase.from('clients').select('*').eq('commercant_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('transactions').select('*').eq('commercant_id', user.id),
-        supabase.from('recompenses').select('*').eq('commercant_id', user.id),
+        supabase.from('transactions').select('*').eq('commercant_id', user.id).order('created_at', { ascending: true }),
       ])
 
       const clientsList = clientsRes.data || []
       const txList = transactionsRes.data || []
-      const rewList = recompensesRes.data || []
 
       const totalPts = txList.filter(t => t.points > 0).reduce((s, t) => s + t.points, 0)
       const exchanges = txList.filter(t => t.type === 'echange').length
@@ -44,7 +43,7 @@ export default function Dashboard() {
 
       setClients(clientsList.slice(0, 5))
 
-      // Données pour le graphe récompenses
+      // Graphe récompenses
       const rewCount = {}
       txList.filter(t => t.type === 'echange').forEach(t => {
         const name = t.description || 'Autre'
@@ -52,20 +51,33 @@ export default function Dashboard() {
       })
       setRewardData(Object.entries(rewCount).map(([name, val]) => ({ name, val })))
 
+      // ✅ Graphe activité — vraies données sur les 8 dernières semaines
+      const now = new Date()
+      const weeks = Array.from({ length: 8 }, (_, i) => {
+        const start = new Date(now)
+        start.setDate(now.getDate() - (7 * (7 - i)))
+        start.setHours(0, 0, 0, 0)
+        const end = new Date(start)
+        end.setDate(start.getDate() + 7)
+        const label = `${start.getDate()}/${start.getMonth() + 1}`
+        const achats = txList.filter(t => {
+          const d = new Date(t.created_at)
+          return t.type === 'achat' && d >= start && d < end
+        }).length
+        const pts = txList.filter(t => {
+          const d = new Date(t.created_at)
+          return t.points > 0 && d >= start && d < end
+        }).reduce((s, t) => s + t.points, 0)
+        return { label, achats, pts }
+      })
+      setAreaData(weeks)
+
     } catch (e) {
       console.error(e)
     } finally {
       setLoading(false)
     }
   }
-
-  // Données graphe area (dernières semaines)
-  const areaData = Array.from({length: 8}, (_, i) => ({
-    s: `S${i+1}`, v: Math.floor(Math.random() * 20) + 5
-  }))
-
-  const STATUS_COLOR = { Actif: '#166534', Nouveau: '#1D4ED8' }
-  const STATUS_BG = { Actif: '#DCFCE7', Nouveau: '#EFF6FF' }
 
   return (
     <div className={styles.page}>
@@ -113,24 +125,38 @@ export default function Dashboard() {
               <>
                 <div className={styles.chartsRow}>
                   <div className={styles.card}>
-                    <div className={styles.cardHead}><div className={styles.cardTitle}>Activité récente</div></div>
-                    <ResponsiveContainer width="100%" height={180}>
-                      <AreaChart data={areaData} margin={{top:5,right:0,left:-20,bottom:0}}>
-                        <defs><linearGradient id="gBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2563EB" stopOpacity={0.15}/><stop offset="95%" stopColor="#2563EB" stopOpacity={0}/></linearGradient></defs>
-                        <XAxis dataKey="s" tick={{fill:'#94A3B8',fontSize:11}} axisLine={false} tickLine={false} />
-                        <YAxis tick={{fill:'#94A3B8',fontSize:11}} axisLine={false} tickLine={false} />
-                        <Tooltip content={<Tip />} />
-                        <Area type="monotone" dataKey="v" stroke="#2563EB" strokeWidth={2} fill="url(#gBlue)" name="Visites" />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    <div className={styles.cardHead}>
+                      <div className={styles.cardTitle}>Achats — 8 dernières semaines</div>
+                    </div>
+                    {areaData.every(d => d.achats === 0) ? (
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:180,fontSize:13,color:'#CBD5E1'}}>Aucun achat enregistré pour l'instant</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={180}>
+                        <AreaChart data={areaData} margin={{top:5,right:0,left:-20,bottom:0}}>
+                          <defs>
+                            <linearGradient id="gBlue" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#2563EB" stopOpacity={0.15}/>
+                              <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <XAxis dataKey="label" tick={{fill:'#94A3B8',fontSize:11}} axisLine={false} tickLine={false} />
+                          <YAxis tick={{fill:'#94A3B8',fontSize:11}} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <Tooltip content={<Tip />} />
+                          <Area type="monotone" dataKey="achats" stroke="#2563EB" strokeWidth={2} fill="url(#gBlue)" name="Achats" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
+
                   <div className={styles.card}>
-                    <div className={styles.cardHead}><div className={styles.cardTitle}>Récompenses échangées</div></div>
+                    <div className={styles.cardHead}>
+                      <div className={styles.cardTitle}>Récompenses échangées</div>
+                    </div>
                     {rewardData.length > 0 ? (
                       <ResponsiveContainer width="100%" height={180}>
                         <BarChart data={rewardData} margin={{top:5,right:0,left:-20,bottom:0}}>
                           <XAxis dataKey="name" tick={{fill:'#94A3B8',fontSize:11}} axisLine={false} tickLine={false} />
-                          <YAxis tick={{fill:'#94A3B8',fontSize:11}} axisLine={false} tickLine={false} />
+                          <YAxis tick={{fill:'#94A3B8',fontSize:11}} axisLine={false} tickLine={false} allowDecimals={false} />
                           <Tooltip content={<Tip />} cursor={{fill:'rgba(37,99,235,0.04)'}} />
                           <Bar dataKey="val" fill="#2563EB" radius={[4,4,0,0]} name="Échanges" />
                         </BarChart>
