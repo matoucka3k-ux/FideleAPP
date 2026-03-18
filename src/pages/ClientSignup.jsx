@@ -7,7 +7,7 @@ export default function ClientSignup() {
   const navigate = useNavigate()
   const { slug } = useParams()
   const [commercant, setCommercant] = useState(null)
-  const [step, setStep] = useState('choice') // choice | signup | login | welcome
+  const [step, setStep] = useState('choice')
   const [isNew, setIsNew] = useState(true)
   const [form, setForm] = useState({ name: '', email: '', tel: '', password: '', accept: false, acceptMarketing: false })
   const [error, setError] = useState('')
@@ -44,14 +44,12 @@ export default function ClientSignup() {
     setLoading(true)
     setError('')
     try {
-      // Crée le compte auth Supabase
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email.trim(),
         password: form.password,
       })
       if (authError) throw authError
 
-      // Cherche si un profil client existe déjà
       const { data: existing } = await supabase
         .from('clients')
         .select('*')
@@ -131,12 +129,17 @@ export default function ClientSignup() {
       .eq('commercant_id', commercant.id)
       .maybeSingle()
 
+    // ✅ FIX : si déjà adhérent, on ne bloque pas — on redirige directement
     if (existingAdhesion) {
-      setError('Vous êtes déjà inscrit au programme de ' + commercant.nom_commerce + '.')
-      setLoading(false)
+      setClientData(client)
+      sessionStorage.setItem('client_data', JSON.stringify(client))
+      sessionStorage.setItem('commercant_data', JSON.stringify(commercant))
+      setIsNew(false)
+      setStep('welcome')
       return
     }
 
+    // Nouveau — on crée l'adhésion
     await supabase.from('adhesions').insert({
       client_id: client.id,
       commercant_id: commercant.id,
@@ -156,6 +159,7 @@ export default function ClientSignup() {
     setClientData(client)
     sessionStorage.setItem('client_data', JSON.stringify(client))
     sessionStorage.setItem('commercant_data', JSON.stringify(commercant))
+    setIsNew(true)
     setStep('welcome')
   }
 
@@ -172,7 +176,6 @@ export default function ClientSignup() {
     </div>
   )
 
-  // MODAL LÉGAL
   if (showLegal) return (
     <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#fff', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       <div style={{ background: '#2563EB', padding: '20px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -253,7 +256,6 @@ export default function ClientSignup() {
     </div>
   )
 
-  // BIENVENUE
   if (step === 'welcome' && clientData) return (
     <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#F8FAFF', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       <div style={{ background: '#2563EB', padding: '48px 24px 32px', color: '#fff', textAlign: 'center' }}>
@@ -261,15 +263,15 @@ export default function ClientSignup() {
           {isNew ? '🎉' : '👋'}
         </div>
         <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6, letterSpacing: -.5 }}>
-          {isNew ? `Bienvenue ${clientData.nom_complet?.split(' ')[0]} !` : `Content de vous revoir !`}
+          {isNew ? `Bienvenue ${clientData.nom_complet?.split(' ')[0]} !` : `Content de vous revoir, ${clientData.nom_complet?.split(' ')[0]} !`}
         </h2>
         <p style={{ fontSize: 14, opacity: .85, lineHeight: 1.6 }}>
-          {isNew ? 'Votre compte FidèleApp est créé.' : 'Nouveau commerce ajouté à votre compte.'}<br />
-          <strong>{commercant.nom_commerce}</strong> vous a rejoint !
+          {isNew ? `Votre compte FidèleApp est créé.\n` : 'Vous êtes bien connecté à '}
+          <strong>{commercant.nom_commerce}</strong>
         </p>
       </div>
       <div style={{ padding: '24px 20px' }}>
-        {commercant.bonus_bienvenue > 0 && (
+        {isNew && commercant.bonus_bienvenue > 0 && (
           <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ fontSize: 22, flexShrink: 0 }}>⭐</div>
             <div>
@@ -306,7 +308,6 @@ export default function ClientSignup() {
     </div>
   )
 
-  // CHOIX : créer un compte ou se connecter
   if (step === 'choice') return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -334,7 +335,6 @@ export default function ClientSignup() {
     </div>
   )
 
-  // FORMULAIRE INSCRIPTION
   if (step === 'signup') return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -372,7 +372,6 @@ export default function ClientSignup() {
     </div>
   )
 
-  // FORMULAIRE CONNEXION
   if (step === 'login') return (
     <div className={styles.page}>
       <div className={styles.header}>
