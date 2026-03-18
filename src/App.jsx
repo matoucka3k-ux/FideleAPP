@@ -34,7 +34,6 @@ function PrivateRoute({ children }) {
 export default function App() {
   return (
     <Routes>
-
       {/* ── PAGES PUBLIQUES COMMERÇANT ── */}
       <Route path="/" element={<Landing />} />
       <Route path="/inscription" element={<Signup />} />
@@ -42,11 +41,12 @@ export default function App() {
       <Route path="/bienvenue" element={<Welcome />} />
 
       {/* ── ESPACE CLIENT MOBILE ── */}
-      {/* Le client scanne le QR code → arrive ici */}
       <Route path="/rejoindre/:slug" element={<ClientSignup />} />
       <Route path="/rejoindre" element={<ClientSignup />} />
-      {/* Après inscription → sa carte de fidélité */}
       <Route path="/ma-carte" element={<ClientCard />} />
+
+      {/* Anciens QR codes → redirige vers la carte */}
+      <Route path="/client/:id" element={<Navigate to="/ma-carte" />} />
 
       {/* ── DASHBOARD COMMERÇANT (protégé) ── */}
       <Route
@@ -66,7 +66,6 @@ export default function App() {
 
       {/* Toute autre URL → accueil */}
       <Route path="*" element={<Navigate to="/" />} />
-
     </Routes>
   )
 }
