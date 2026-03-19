@@ -10,22 +10,70 @@ const NAV = [
   { to: '/dashboard/points', label: 'Système de points', icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8 2l1.2 2.5 2.8.4-2 2 .5 2.8L8 8.4 5.5 9.7 6 6.9 4 4.9l2.8-.4z"/></svg> },
 ]
 
-const SYSTEM_PROMPT = `Tu es l'assistant support de FidèleApp, une application de programme de fidélité pour commerçants français. Tu réponds uniquement en français, de façon concise et bienveillante.
+const FAQ = [
+  {
+    keywords: ['points', 'créditer', 'ajouter', 'attribuer', 'bug', 'marche pas', 'fonctionne pas'],
+    answer: 'Pour créditer des points : allez dans **Encaisser**, cherchez le client, ajoutez les articles achetés puis cliquez "Valider". Si ça ne fonctionne pas, vérifiez que vos articles sont bien configurés dans "Système de points".'
+  },
+  {
+    keywords: ['article', 'configurer', 'créer', 'ajouter article', 'catégorie'],
+    answer: 'Pour ajouter des articles : allez dans **Système de points** → section "Articles & catégories". Entrez le nom de l\'article et le nombre de points qu\'il rapporte, puis sauvegardez.'
+  },
+  {
+    keywords: ['récompense', 'cadeau', 'échange', 'offrir'],
+    answer: 'Pour créer une récompense : allez dans **Système de points** → section "Récompenses". Définissez le nom (ex: "Café offert") et le nombre de points nécessaires pour l\'obtenir.'
+  },
+  {
+    keywords: ['client', 'inscription', 'inscrire', 'rejoindre', 'nouveau'],
+    answer: 'Pour inscrire un nouveau client : allez dans **Encaisser** et imprimez votre QR code boutique. Le client le scanne, crée son compte en 30 secondes et reçoit son QR code personnel.'
+  },
+  {
+    keywords: ['qr', 'qr code', 'imprimer', 'afficher'],
+    answer: 'Votre QR code boutique est disponible dans **Encaisser**. Cliquez sur "Imprimer" pour l\'afficher et le poser sur votre comptoir.'
+  },
+  {
+    keywords: ['bonus', 'bienvenue', 'nouveau client'],
+    answer: 'Le bonus de bienvenue est offert automatiquement à chaque nouveau client inscrit. Vous pouvez modifier ce nombre dans **Système de points** → "Bonus de bienvenue".'
+  },
+  {
+    keywords: ['statistique', 'graphique', 'données', 'tableau de bord', 'chiffre'],
+    answer: 'Toutes vos statistiques sont sur le **Tableau de bord** : clients fidèles, achats, points distribués, récompenses offertes, et graphiques d\'évolution.'
+  },
+  {
+    keywords: ['compte', 'profil', 'modifier', 'nom', 'commerce'],
+    answer: 'Pour modifier les informations de votre commerce : allez dans **Mon compte** depuis le menu de gauche.'
+  },
+  {
+    keywords: ['supprimer', 'effacer', 'enlever client'],
+    answer: 'La suppression de client est disponible dans **Mes clients**. Cliquez sur le client puis cherchez l\'option de suppression.'
+  },
+  {
+    keywords: ['déconnect', 'logout', 'sortir'],
+    answer: 'Pour vous déconnecter : cliquez sur la flèche de déconnexion en bas à gauche de la sidebar.'
+  },
+  {
+    keywords: ['prix', 'abonnement', 'payer', 'gratuit', 'bêta'],
+    answer: 'Vous êtes actuellement en accès Bêta Gratuit. Profitez-en ! Pour toute question sur les tarifs, contactez support@fidele-app.fr'
+  },
+]
 
-Tu aides les commerçants avec :
-- Le tableau de bord (statistiques, transactions, graphiques)
-- Encaisser (enregistrer un achat, attribuer des points)
-- Mes clients (voir la liste, les points de chaque client)
-- Système de points (configurer les articles, les récompenses, le bonus de bienvenue)
-- Mon compte (modifier les informations)
-- Les QR codes et l'inscription des clients
+function getAutoReply(message) {
+  const msg = message.toLowerCase()
+  for (const faq of FAQ) {
+    if (faq.keywords.some(k => msg.includes(k))) {
+      return faq.answer
+    }
+  }
+  return null
+}
 
-Si tu ne sais pas, dis-le honnêtement et suggère de contacter support@fidele-app.fr.
-Réponds toujours en 2-3 phrases maximum sauf si une explication détaillée est vraiment nécessaire.`
+function formatMessage(text) {
+  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+}
 
 function ChatBot({ onClose }) {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Bonjour ! 👋 Je suis l\'assistant FidèleApp. Comment puis-je vous aider ?' }
+    { role: 'assistant', content: 'Bonjour ! 👋 Je suis l\'assistant FidèleApp. Posez-moi votre question sur l\'utilisation de l\'application.' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -35,34 +83,27 @@ function ChatBot({ onClose }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  async function sendMessage() {
+  function sendMessage() {
     const text = input.trim()
     if (!text || loading) return
 
-    const newMessages = [...messages, { role: 'user', content: text }]
-    setMessages(newMessages)
+    const userMsg = { role: 'user', content: text }
+    setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
 
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: SYSTEM_PROMPT,
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-        }),
-      })
-      const data = await response.json()
-      const reply = data.content?.[0]?.text || 'Désolé, une erreur est survenue.'
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Désolé, je suis momentanément indisponible. Contactez support@fidele-app.fr' }])
-    } finally {
+    setTimeout(() => {
+      const reply = getAutoReply(text)
+      if (reply) {
+        setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: 'Je n\'ai pas bien compris votre question. Pouvez-vous préciser ? Vous pouvez aussi contacter directement notre équipe à **support@fidele-app.fr** — nous répondons sous 24h.'
+        }])
+      }
       setLoading(false)
-    }
+    }, 600)
   }
 
   return (
@@ -77,10 +118,7 @@ function ChatBot({ onClose }) {
       overflow: 'hidden',
     }}>
       {/* Header */}
-      <div style={{
-        background: '#2563EB', padding: '14px 16px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
-      }}>
+      <div style={{ background: '#2563EB', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="2" style={{ width: 16, height: 16 }}><path d="M8 2C5 2 3 4 3 6.5c0 3.5 5 7.5 5 7.5s5-4 5-7.5C13 4 11 2 8 2z"/></svg>
@@ -97,51 +135,59 @@ function ChatBot({ onClose }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 8px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-            <div style={{
-              maxWidth: '82%',
-              padding: '9px 12px',
-              borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-              background: m.role === 'user' ? '#2563EB' : '#F1F5F9',
-              color: m.role === 'user' ? '#fff' : '#1e293b',
-              fontSize: 13, lineHeight: 1.5, fontWeight: 400,
-            }}>
-              {m.content}
-            </div>
+            <div
+              style={{
+                maxWidth: '82%', padding: '9px 12px',
+                borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                background: m.role === 'user' ? '#2563EB' : '#F1F5F9',
+                color: m.role === 'user' ? '#fff' : '#1e293b',
+                fontSize: 13, lineHeight: 1.55,
+              }}
+              dangerouslySetInnerHTML={{ __html: formatMessage(m.content) }}
+            />
           </div>
         ))}
         {loading && (
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div style={{ background: '#F1F5F9', borderRadius: '12px 12px 12px 2px', padding: '9px 14px', fontSize: 18, color: '#94a3b8' }}>
-              <span style={{ animation: 'pulse 1s infinite' }}>···</span>
+            <div style={{ background: '#F1F5F9', borderRadius: '12px 12px 12px 2px', padding: '10px 16px', fontSize: 18, letterSpacing: 2 }}>
+              <span style={{ color: '#94a3b8' }}>···</span>
             </div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
+      {/* Suggestions rapides */}
+      {messages.length === 1 && (
+        <div style={{ padding: '0 12px 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {['Créditer des points', 'Ajouter un article', 'Créer une récompense', 'QR Code boutique'].map(s => (
+            <button key={s} onClick={() => { setInput(s); setTimeout(() => document.getElementById('chatInput')?.focus(), 50) }}
+              style={{ fontSize: 11, fontWeight: 600, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 20, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Input */}
       <div style={{ padding: '10px 12px', borderTop: '1px solid #f0f2f5', display: 'flex', gap: 8, flexShrink: 0 }}>
         <input
+          id="chatInput"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && sendMessage()}
           placeholder="Posez votre question..."
-          style={{
-            flex: 1, border: '1.5px solid #e2e8f0', borderRadius: 9,
-            padding: '9px 12px', fontSize: 13, fontFamily: 'inherit',
-            outline: 'none', color: '#1e293b', background: '#f8fafc',
-          }}
+          style={{ flex: 1, border: '1.5px solid #e2e8f0', borderRadius: 9, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#1e293b', background: '#f8fafc' }}
         />
         <button
           onClick={sendMessage}
           disabled={loading || !input.trim()}
           style={{
-            width: 36, height: 36, borderRadius: 9, border: 'none',
+            width: 36, height: 36, borderRadius: 9, border: 'none', flexShrink: 0,
             background: input.trim() && !loading ? '#2563EB' : '#E2E8F0',
             color: input.trim() && !loading ? '#fff' : '#94A3B8',
             cursor: input.trim() && !loading ? 'pointer' : 'default',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            transition: 'background 0.15s',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
@@ -221,7 +267,7 @@ export default function DashboardLayout() {
           background: '#2563EB', border: 'none', cursor: 'pointer',
           boxShadow: '0 4px 20px rgba(37,99,235,0.4)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'transform 0.15s, box-shadow 0.15s',
+          transition: 'transform 0.15s',
         }}
         onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
         onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -237,7 +283,6 @@ export default function DashboardLayout() {
         )}
       </button>
 
-      {/* Fenêtre chatbot */}
       {chatOpen && <ChatBot onClose={() => setChatOpen(false)} />}
     </div>
   )
