@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import styles from './DashboardLayout.module.css'
@@ -9,9 +10,153 @@ const NAV = [
   { to: '/dashboard/points', label: 'Système de points', icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8 2l1.2 2.5 2.8.4-2 2 .5 2.8L8 8.4 5.5 9.7 6 6.9 4 4.9l2.8-.4z"/></svg> },
 ]
 
+const SYSTEM_PROMPT = `Tu es l'assistant support de FidèleApp, une application de programme de fidélité pour commerçants français. Tu réponds uniquement en français, de façon concise et bienveillante.
+
+Tu aides les commerçants avec :
+- Le tableau de bord (statistiques, transactions, graphiques)
+- Encaisser (enregistrer un achat, attribuer des points)
+- Mes clients (voir la liste, les points de chaque client)
+- Système de points (configurer les articles, les récompenses, le bonus de bienvenue)
+- Mon compte (modifier les informations)
+- Les QR codes et l'inscription des clients
+
+Si tu ne sais pas, dis-le honnêtement et suggère de contacter support@fidele-app.fr.
+Réponds toujours en 2-3 phrases maximum sauf si une explication détaillée est vraiment nécessaire.`
+
+function ChatBot({ onClose }) {
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: 'Bonjour ! 👋 Je suis l\'assistant FidèleApp. Comment puis-je vous aider ?' }
+  ])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const bottomRef = useRef(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  async function sendMessage() {
+    const text = input.trim()
+    if (!text || loading) return
+
+    const newMessages = [...messages, { role: 'user', content: text }]
+    setMessages(newMessages)
+    setInput('')
+    setLoading(true)
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: SYSTEM_PROMPT,
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+        }),
+      })
+      const data = await response.json()
+      const reply = data.content?.[0]?.text || 'Désolé, une erreur est survenue.'
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Désolé, je suis momentanément indisponible. Contactez support@fidele-app.fr' }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 90, right: 24, zIndex: 1000,
+      width: 340, height: 480,
+      background: '#fff', borderRadius: 16,
+      boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+      border: '1px solid #e2e8f0',
+      display: 'flex', flexDirection: 'column',
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div style={{
+        background: '#2563EB', padding: '14px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="2" style={{ width: 16, height: 16 }}><path d="M8 2C5 2 3 4 3 6.5c0 3.5 5 7.5 5 7.5s5-4 5-7.5C13 4 11 2 8 2z"/></svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Support FidèleApp</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)' }}>● En ligne</div>
+          </div>
+        </div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+      </div>
+
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 8px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={{
+              maxWidth: '82%',
+              padding: '9px 12px',
+              borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+              background: m.role === 'user' ? '#2563EB' : '#F1F5F9',
+              color: m.role === 'user' ? '#fff' : '#1e293b',
+              fontSize: 13, lineHeight: 1.5, fontWeight: 400,
+            }}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ background: '#F1F5F9', borderRadius: '12px 12px 12px 2px', padding: '9px 14px', fontSize: 18, color: '#94a3b8' }}>
+              <span style={{ animation: 'pulse 1s infinite' }}>···</span>
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: '10px 12px', borderTop: '1px solid #f0f2f5', display: 'flex', gap: 8, flexShrink: 0 }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && sendMessage()}
+          placeholder="Posez votre question..."
+          style={{
+            flex: 1, border: '1.5px solid #e2e8f0', borderRadius: 9,
+            padding: '9px 12px', fontSize: 13, fontFamily: 'inherit',
+            outline: 'none', color: '#1e293b', background: '#f8fafc',
+          }}
+        />
+        <button
+          onClick={sendMessage}
+          disabled={loading || !input.trim()}
+          style={{
+            width: 36, height: 36, borderRadius: 9, border: 'none',
+            background: input.trim() && !loading ? '#2563EB' : '#E2E8F0',
+            color: input.trim() && !loading ? '#fff' : '#94A3B8',
+            cursor: input.trim() && !loading ? 'pointer' : 'default',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            transition: 'background 0.15s',
+          }}
+        >
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
+            <path d="M14 2L2 7l5 2 2 5 5-12z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardLayout() {
   const navigate = useNavigate()
   const { commercant, signOut } = useAuth()
+  const [chatOpen, setChatOpen] = useState(false)
 
   const handleSignOut = async () => {
     await signOut()
@@ -28,7 +173,7 @@ export default function DashboardLayout() {
   return (
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
-        <div className={styles.logo} onClick={handleLogoClick} style={{cursor:'pointer'}}>
+        <div className={styles.logo} onClick={handleLogoClick} style={{ cursor: 'pointer' }}>
           <div className={styles.logoMark}>
             <svg viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="2"><path d="M8 2C5 2 3 4 3 6.5c0 3.5 5 7.5 5 7.5s5-4 5-7.5C13 4 11 2 8 2z"/></svg>
           </div>
@@ -43,7 +188,7 @@ export default function DashboardLayout() {
               <span>{item.label}</span>
             </NavLink>
           ))}
-          <div className={styles.navSection} style={{marginTop:8}}>Paramètres</div>
+          <div className={styles.navSection} style={{ marginTop: 8 }}>Paramètres</div>
           <NavLink to="/dashboard/compte"
             className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}>
             <span className={styles.navIcon}>
@@ -54,16 +199,46 @@ export default function DashboardLayout() {
         </nav>
         <div className={styles.user}>
           <div className={styles.avatar}>{initiales}</div>
-          <div style={{flex:1,minWidth:0}}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div className={styles.userName}>{commercant?.nom_commerce || 'Mon commerce'}</div>
             <div className={styles.userPlan}>Bêta · Gratuit</div>
           </div>
-          <button onClick={handleSignOut} title="Se déconnecter" style={{background:'none',border:'none',cursor:'pointer',color:'#94A3B8',padding:4,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><path d="M9 2h2a1 1 0 011 1v7a1 1 0 01-1 1H9"/><path d="M6 9l3-3-3-3M1 7h8"/></svg>
+          <button onClick={handleSignOut} title="Se déconnecter" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}><path d="M9 2h2a1 1 0 011 1v7a1 1 0 01-1 1H9"/><path d="M6 9l3-3-3-3M1 7h8"/></svg>
           </button>
         </div>
       </aside>
+
       <main className={styles.main}><Outlet /></main>
+
+      {/* Bouton chatbot */}
+      <button
+        onClick={() => setChatOpen(o => !o)}
+        title="Support"
+        style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 999,
+          width: 52, height: 52, borderRadius: '50%',
+          background: '#2563EB', border: 'none', cursor: 'pointer',
+          boxShadow: '0 4px 20px rgba(37,99,235,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'transform 0.15s, box-shadow 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
+        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        {chatOpen ? (
+          <svg viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="2.2" style={{ width: 18, height: 18 }}>
+            <path d="M3 3l10 10M13 3L3 13"/>
+          </svg>
+        ) : (
+          <svg viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="1.8" style={{ width: 20, height: 20 }}>
+            <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H9l-3 3v-3H3a1 1 0 01-1-1V3z"/>
+          </svg>
+        )}
+      </button>
+
+      {/* Fenêtre chatbot */}
+      {chatOpen && <ChatBot onClose={() => setChatOpen(false)} />}
     </div>
   )
 }
