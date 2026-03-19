@@ -10,70 +10,13 @@ const NAV = [
   { to: '/dashboard/points', label: 'Système de points', icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8 2l1.2 2.5 2.8.4-2 2 .5 2.8L8 8.4 5.5 9.7 6 6.9 4 4.9l2.8-.4z"/></svg> },
 ]
 
-const FAQ = [
-  {
-    keywords: ['points', 'créditer', 'ajouter', 'attribuer', 'bug', 'marche pas', 'fonctionne pas'],
-    answer: 'Pour créditer des points : allez dans **Encaisser**, cherchez le client, ajoutez les articles achetés puis cliquez "Valider". Si ça ne fonctionne pas, vérifiez que vos articles sont bien configurés dans "Système de points".'
-  },
-  {
-    keywords: ['article', 'configurer', 'créer', 'ajouter article', 'catégorie'],
-    answer: 'Pour ajouter des articles : allez dans **Système de points** → section "Articles & catégories". Entrez le nom de l\'article et le nombre de points qu\'il rapporte, puis sauvegardez.'
-  },
-  {
-    keywords: ['récompense', 'cadeau', 'échange', 'offrir'],
-    answer: 'Pour créer une récompense : allez dans **Système de points** → section "Récompenses". Définissez le nom (ex: "Café offert") et le nombre de points nécessaires pour l\'obtenir.'
-  },
-  {
-    keywords: ['client', 'inscription', 'inscrire', 'rejoindre', 'nouveau'],
-    answer: 'Pour inscrire un nouveau client : allez dans **Encaisser** et imprimez votre QR code boutique. Le client le scanne, crée son compte en 30 secondes et reçoit son QR code personnel.'
-  },
-  {
-    keywords: ['qr', 'qr code', 'imprimer', 'afficher'],
-    answer: 'Votre QR code boutique est disponible dans **Encaisser**. Cliquez sur "Imprimer" pour l\'afficher et le poser sur votre comptoir.'
-  },
-  {
-    keywords: ['bonus', 'bienvenue', 'nouveau client'],
-    answer: 'Le bonus de bienvenue est offert automatiquement à chaque nouveau client inscrit. Vous pouvez modifier ce nombre dans **Système de points** → "Bonus de bienvenue".'
-  },
-  {
-    keywords: ['statistique', 'graphique', 'données', 'tableau de bord', 'chiffre'],
-    answer: 'Toutes vos statistiques sont sur le **Tableau de bord** : clients fidèles, achats, points distribués, récompenses offertes, et graphiques d\'évolution.'
-  },
-  {
-    keywords: ['compte', 'profil', 'modifier', 'nom', 'commerce'],
-    answer: 'Pour modifier les informations de votre commerce : allez dans **Mon compte** depuis le menu de gauche.'
-  },
-  {
-    keywords: ['supprimer', 'effacer', 'enlever client'],
-    answer: 'La suppression de client est disponible dans **Mes clients**. Cliquez sur le client puis cherchez l\'option de suppression.'
-  },
-  {
-    keywords: ['déconnect', 'logout', 'sortir'],
-    answer: 'Pour vous déconnecter : cliquez sur la flèche de déconnexion en bas à gauche de la sidebar.'
-  },
-  {
-    keywords: ['prix', 'abonnement', 'payer', 'gratuit', 'bêta'],
-    answer: 'Vous êtes actuellement en accès Bêta Gratuit. Profitez-en ! Pour toute question sur les tarifs, contactez support@fidele-app.fr'
-  },
-]
-
-function getAutoReply(message) {
-  const msg = message.toLowerCase()
-  for (const faq of FAQ) {
-    if (faq.keywords.some(k => msg.includes(k))) {
-      return faq.answer
-    }
-  }
-  return null
-}
-
 function formatMessage(text) {
   return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 }
 
 function ChatBot({ onClose }) {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Bonjour ! 👋 Je suis l\'assistant FidèleApp. Posez-moi votre question sur l\'utilisation de l\'application.' }
+    { role: 'assistant', content: 'Bonjour ! 👋 Je suis l\'assistant FidèleApp. Comment puis-je vous aider ?' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -83,27 +26,34 @@ function ChatBot({ onClose }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  function sendMessage() {
+  async function sendMessage() {
     const text = input.trim()
     if (!text || loading) return
 
-    const userMsg = { role: 'user', content: text }
-    setMessages(prev => [...prev, userMsg])
+    const newMessages = [...messages, { role: 'user', content: text }]
+    setMessages(newMessages)
     setInput('')
     setLoading(true)
 
-    setTimeout(() => {
-      const reply = getAutoReply(text)
-      if (reply) {
-        setMessages(prev => [...prev, { role: 'assistant', content: reply }])
-      } else {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: 'Je n\'ai pas bien compris votre question. Pouvez-vous préciser ? Vous pouvez aussi contacter directement notre équipe à **support@fidele-app.fr** — nous répondons sous 24h.'
-        }])
-      }
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages.map(m => ({ role: m.role, content: m.content }))
+        }),
+      })
+      const data = await response.json()
+      const reply = data.content?.[0]?.text || 'Désolé, une erreur est survenue. Contactez support@fidele-app.fr'
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+    } catch {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Je suis momentanément indisponible. Contactez **support@fidele-app.fr**'
+      }])
+    } finally {
       setLoading(false)
-    }, 600)
+    }
   }
 
   return (
@@ -161,7 +111,7 @@ function ChatBot({ onClose }) {
       {messages.length === 1 && (
         <div style={{ padding: '0 12px 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {['Créditer des points', 'Ajouter un article', 'Créer une récompense', 'QR Code boutique'].map(s => (
-            <button key={s} onClick={() => { setInput(s); setTimeout(() => document.getElementById('chatInput')?.focus(), 50) }}
+            <button key={s} onClick={() => setInput(s)}
               style={{ fontSize: 11, fontWeight: 600, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 20, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
               {s}
             </button>
@@ -172,7 +122,6 @@ function ChatBot({ onClose }) {
       {/* Input */}
       <div style={{ padding: '10px 12px', borderTop: '1px solid #f0f2f5', display: 'flex', gap: 8, flexShrink: 0 }}>
         <input
-          id="chatInput"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && sendMessage()}
@@ -257,7 +206,6 @@ export default function DashboardLayout() {
 
       <main className={styles.main}><Outlet /></main>
 
-      {/* Bouton chatbot */}
       <button
         onClick={() => setChatOpen(o => !o)}
         title="Support"
