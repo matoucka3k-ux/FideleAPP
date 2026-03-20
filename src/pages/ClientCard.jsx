@@ -11,9 +11,27 @@ export default function ClientCard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const clientData = sessionStorage.getItem('client_data')
-    if (clientData) setClient(JSON.parse(clientData))
-    setLoading(false)
+    async function initClient() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user?.id) { setLoading(false); return }
+        // Charge les données directement depuis Supabase (pas de sessionStorage)
+        const { data, error } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+        if (error || !data) { setLoading(false); return }
+        // Si le client vient de scanner un QR, utilise ce commerçant comme contexte
+        // (un même client peut être membre de plusieurs commerces)
+        const commercantId = sessionStorage.getItem('fidele_commercant_id')
+        setClient(commercantId ? { ...data, commercant_id: commercantId } : data)
+      } catch {
+        // pas de log pour éviter de fuiter des infos système
+      }
+      setLoading(false)
+    }
+    initClient()
   }, [])
 
   useEffect(() => {
