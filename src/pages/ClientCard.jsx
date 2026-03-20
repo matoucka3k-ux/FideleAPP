@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase.js'
 import styles from './ClientCard.module.css'
 
 export default function ClientCard() {
+  const navigate = useNavigate()
   const [client, setClient] = useState(null)
   const [commercant, setCommercant] = useState(null)
   const [recompenses, setRecompenses] = useState([])
@@ -15,15 +17,12 @@ export default function ClientCard() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.user?.id) { setLoading(false); return }
-        // Charge les données directement depuis Supabase (pas de sessionStorage)
         const { data, error } = await supabase
           .from('clients')
           .select('*')
           .eq('id', session.user.id)
           .single()
         if (error || !data) { setLoading(false); return }
-        // Si le client vient de scanner un QR, utilise ce commerçant comme contexte
-        // (un même client peut être membre de plusieurs commerces)
         const commercantId = sessionStorage.getItem('fidele_commercant_id')
         setClient(commercantId ? { ...data, commercant_id: commercantId } : data)
       } catch {
@@ -37,6 +36,13 @@ export default function ClientCard() {
   useEffect(() => {
     if (client) loadData()
   }, [client])
+
+  async function handleLogout() {
+    sessionStorage.removeItem('fidele_client_id')
+    sessionStorage.removeItem('fidele_commercant_id')
+    await supabase.auth.signOut()
+    navigate('/')
+  }
 
   async function loadData() {
     const [rewRes, txRes, clientRes, commRes] = await Promise.all([
@@ -78,10 +84,13 @@ export default function ClientCard() {
       <div className={styles.header}>
         <div className={styles.shopRow}>
           <div className={styles.shopLogo}>{commercant?.nom_commerce?.[0]?.toUpperCase() || '?'}</div>
-          <div>
+          <div style={{ flex: 1 }}>
             <div className={styles.shopName}>{commercant?.nom_commerce || 'Mon programme'}</div>
             <div className={styles.shopType}>Programme de fidélité</div>
           </div>
+          <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+            Déconnexion
+          </button>
         </div>
         <div className={styles.greeting}>Bonjour {prenom} 👋</div>
         <div className={styles.ptsBig}>{client.points}</div>
