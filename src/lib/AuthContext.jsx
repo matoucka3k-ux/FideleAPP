@@ -3,19 +3,38 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
+const CACHE_KEY = 'fidele_commercant'
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [commercant, setCommercant] = useState(null)
+  const [commercant, setCommercant] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY)) } catch { return null }
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadCommercant(session.user.id)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user ?? null
+      setUser(u)
+      if (u) {
+        if (localStorage.getItem(CACHE_KEY)) setLoading(false)
+        loadCommercant(u.id)
       } else {
+        localStorage.removeItem(CACHE_KEY)
+        setLoading(false)
+      }
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user ?? null
+      setUser(u)
+      if (!u) {
+        localStorage.removeItem(CACHE_KEY)
         setCommercant(null)
         setLoading(false)
+      }
+      if (u && (_event === 'SIGNED_IN' || _event === 'USER_UPDATED')) {
+        loadCommercant(u.id)
       }
     })
     return () => subscription.unsubscribe()
@@ -29,6 +48,7 @@ export function AuthProvider({ children }) {
         .eq('id', userId)
         .single()
       if (error) throw error
+      localStorage.setItem(CACHE_KEY, JSON.stringify(data))
       setCommercant(data)
     } catch (e) {
       console.error('Erreur chargement commerçant:', e.message)
@@ -71,6 +91,7 @@ export function AuthProvider({ children }) {
 
   async function signOut() {
     await supabase.auth.signOut()
+    sessionStorage.clear()
     setUser(null)
     setCommercant(null)
   }
@@ -95,3 +116,4 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext)
+
