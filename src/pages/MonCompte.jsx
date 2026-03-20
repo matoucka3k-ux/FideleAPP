@@ -24,7 +24,6 @@ export default function MonCompte() {
   const [cookieOn, setCookieOn] = useState(true)
   const [form, setForm] = useState(null)
 
-  // Quand commercant arrive, reset le form si on était en train d'éditer
   useEffect(() => {
     if (commercant && editing) {
       setForm({
@@ -86,7 +85,6 @@ export default function MonCompte() {
     background: disabled ? '#F8FAFF' : '#fff', width: '100%'
   })
 
-  // Affiche un loader tant que les données ne sont pas prêtes
   if (loading || !commercant) return (
     <div style={{ minHeight: '100vh', background: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ fontSize: 14, color: '#94A3B8', fontWeight: 600 }}>Chargement...</div>
@@ -98,8 +96,8 @@ export default function MonCompte() {
     ['Nom', 'nom', false],
     ['Nom du commerce', 'nom_commerce', true],
     ['Email', 'email', false, true],
-    ['Téléphone', 'telephone', false],
-    ['Adresse', 'adresse', true],
+    ['Téléphone', 'telephone', false, false],
+    ['Adresse', 'adresse', true, false],
   ] : [
     ['Prénom', commercant?.nom_complet?.split(' ')[0] ?? '', false],
     ['Nom', commercant?.nom_complet?.split(' ').slice(1).join(' ') ?? '', false],
@@ -122,12 +120,10 @@ export default function MonCompte() {
           </div>
         )}
 
-        {/* ONGLETS */}
         <div style={{ display: 'flex', gap: 4, background: '#F1F5F9', borderRadius: 10, padding: 3, width: 'fit-content' }}>
           {TABS.map(t => <button key={t} style={tabStyle(t)} onClick={() => setTab(t)}>{t}</button>)}
         </div>
 
-        {/* PROFIL */}
         {tab === 'Profil' && (
           <div style={s.card}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -153,12 +149,7 @@ export default function MonCompte() {
                 fields.map(([label, key, full, disabled]) => (
                   <div key={label} style={{ gridColumn: full ? '1/-1' : 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <label style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</label>
-                    <input
-                      value={form[key]}
-                      disabled={disabled}
-                      onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                      style={inp(disabled)}
-                    />
+                    <input value={form[key]} disabled={disabled} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} style={inp(disabled)} />
                   </div>
                 ))
               ) : (
@@ -173,7 +164,6 @@ export default function MonCompte() {
           </div>
         )}
 
-        {/* ABONNEMENT */}
         {tab === 'Abonnement' && (
           <>
             <div style={s.card}>
@@ -181,18 +171,14 @@ export default function MonCompte() {
               <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', border: '1.5px solid #93C5FD', borderRadius: 12, padding: '20px 22px', marginTop: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div>
-                    <div style={{ background: '#2563EB', color: '#fff', fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 999, display: 'inline-block', marginBottom: 8 }}>Actif</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#1D4ED8', marginBottom: 4 }}>Plan Annuel</div>
-                    <div style={{ fontSize: 14, color: '#3B82F6', fontWeight: 600 }}>199 € / an — soit 16,60 € / mois</div>
-                    <div style={{ fontSize: 12, color: '#60A5FA', marginTop: 2 }}>Renouvellement automatique le 15 mars 2026</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-                    <button style={{ background: '#fff', border: '1.5px solid #93C5FD', color: '#2563EB', fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Gérer la facturation</button>
-                    <button style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>Annuler l'abonnement</button>
+                    <div style={{ background: '#2563EB', color: '#fff', fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 999, display: 'inline-block', marginBottom: 8 }}>Accès bêta</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#1D4ED8', marginBottom: 4 }}>Version bêta — Accès gratuit</div>
+                    <div style={{ fontSize: 14, color: '#3B82F6', fontWeight: 600 }}>Accès complet offert pendant la période de test</div>
+                    <div style={{ fontSize: 12, color: '#60A5FA', marginTop: 2 }}>La tarification sera communiquée avant la sortie officielle</div>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 16 }}>
-                  {['Clients illimités', 'Récompenses illimitées', "QR Code d'inscription", 'Notifications SMS & push', 'Offres anniversaire auto', 'Support 7j/7'].map(f => (
+                  {['Clients illimités', 'Récompenses illimitées', "QR Code d'inscription"].map(f => (
                     <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#1E40AF', fontWeight: 500 }}>
                       <span style={{ color: '#2563EB', fontWeight: 700 }}>✓</span>{f}
                     </div>
@@ -200,71 +186,35 @@ export default function MonCompte() {
                 </div>
               </div>
             </div>
-            <div style={s.card}>
-              <div style={s.cardTitle}>Historique des factures</div>
-              <div style={{ marginTop: 16 }}>
-                {[['15 mars 2025', '199,00 €'], ['15 mars 2024', '199,00 €']].map(([d, m]) => (
-                  <div key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid #F1F5F9', fontSize: 13 }}>
-                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{d}</span>
-                    <span style={{ color: '#64748B' }}>Plan Annuel</span>
-                    <span style={{ color: '#2563EB', fontWeight: 700 }}>{m}</span>
-                    <span style={{ background: '#DCFCE7', color: '#166534', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999 }}>Payée</span>
-                    <span style={{ color: '#94A3B8', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Télécharger</span>
-                  </div>
-                ))}
+            <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: '16px 20px' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#1D4ED8', marginBottom: 4 }}>Vous êtes bêta-testeur</div>
+              <div style={{ fontSize: 13, color: '#3B82F6', lineHeight: 1.65 }}>
+                Merci de nous faire confiance. Votre retour est précieux pour améliorer FidèleApp avant son lancement officiel. En cas de question, contactez-nous à <span style={{ fontWeight: 700 }}>contact@fidele-app.fr</span>
               </div>
-            </div>
-            <div style={{ background: '#FEF9C3', border: '1px solid #FDE68A', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#854D0E', marginBottom: 3 }}>Passer au plan mensuel</div>
-                <div style={{ fontSize: 13, color: '#92400E' }}>29 € / mois · Sans engagement · Résiliable à tout moment</div>
-              </div>
-              <button style={{ background: '#F59E0B', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Changer de plan</button>
             </div>
           </>
         )}
 
-        {/* SECURITE */}
         {tab === 'Sécurité' && (
           <>
             <div style={s.card}>
               <div style={s.cardTitle}>Sécurité du compte</div>
-              <div style={{ marginTop: 16 }}>
-                {[
-                  ['Mot de passe', 'Dernière modification il y a 3 mois', 'Modifier le mot de passe', false],
-                  ['Double authentification (2FA)', 'Ajoutez une couche de sécurité supplémentaire', 'Activer', false],
-                  ['Sessions actives', 'Vous êtes connecté sur 1 appareil', 'Déconnecter tout', true]
-                ].map(([l, d, btn, danger]) => (
-                  <div key={l} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid #F1F5F9' }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#0F172A', marginBottom: 3 }}>{l}</div>
-                      <div style={{ fontSize: 12, color: '#94A3B8' }}>{d}</div>
-                    </div>
-                    <button style={{ background: '#F8FAFF', border: `1.5px solid ${danger ? '#FECACA' : '#E2E8F0'}`, color: danger ? '#DC2626' : '#475569', fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>{btn}</button>
-                  </div>
-                ))}
+              <div style={{ fontSize: 13, color: '#64748B', marginTop: 8, marginBottom: 4 }}>
+                Pour modifier votre mot de passe, contactez-nous à <span style={{ color: '#2563EB', fontWeight: 600 }}>contact@fidele-app.fr</span>
               </div>
-            </div>
-            <div style={{ background: '#FEF2F2', border: '1.5px solid #FECACA', borderRadius: 12, padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#991B1B', marginBottom: 3 }}>Supprimer mon compte</div>
-                <div style={{ fontSize: 13, color: '#B91C1C' }}>Toutes vos données seront définitivement supprimées</div>
-              </div>
-              <button style={{ background: '#DC2626', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Supprimer</button>
             </div>
             <div style={{ background: '#FEF2F2', border: '1.5px solid #FECACA', borderRadius: 12, padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#991B1B', marginBottom: 3 }}>Se déconnecter</div>
                 <div style={{ fontSize: 13, color: '#B91C1C' }}>Vous serez redirigé vers la page de connexion</div>
               </div>
-              <button onClick={signOut} style={{ background: '#DC2626', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: '9px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button onClick={signOut} style={{ background: '#DC2626', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: '9px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Se déconnecter
               </button>
             </div>
           </>
         )}
 
-        {/* LEGAL */}
         {tab === 'Mentions légales & RGPD' && (
           <div style={s.card}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
@@ -276,11 +226,11 @@ export default function MonCompte() {
                 <h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Conditions Générales d'Utilisation</h2>
                 <p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 16 }}>Dernière mise à jour : 1er janvier 2025</p>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>1. Objet</h3>
-                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>Les présentes CGU régissent l'accès et l'utilisation de la plateforme FidèleApp, éditée par FidèleApp SAS, société par actions simplifiée au capital de 10 000 €, immatriculée au RCS de Paris sous le numéro 123 456 789.</p>
+                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>Les présentes CGU régissent l'accès et l'utilisation de la plateforme FidèleApp. FidèleApp est actuellement en version bêta — les CGU définitives seront publiées avant le lancement officiel.</p>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>2. Accès au service</h3>
-                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>FidèleApp est accessible à tout commerçant disposant d'un établissement en France. L'accès est conditionné à la création d'un compte et au paiement d'un abonnement.</p>
-                <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>3. Résiliation</h3>
-                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75 }}>L'utilisateur peut résilier son abonnement à tout moment depuis « Mon compte ». La résiliation prend effet à l'issue de la période en cours. Aucun remboursement n'est effectué pour la période entamée.</p>
+                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>FidèleApp est accessible à tout commerçant disposant d'un établissement en France. L'accès bêta est gratuit et sans engagement.</p>
+                <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>3. Évolution du service</h3>
+                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75 }}>En tant que bêta-testeur, vous serez informé de toute évolution tarifaire ou contractuelle avant son entrée en vigueur. Vous pouvez supprimer votre compte à tout moment en contactant contact@fidele-app.fr.</p>
               </div>
             )}
 
@@ -289,9 +239,9 @@ export default function MonCompte() {
                 <h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Politique de confidentialité</h2>
                 <p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 16 }}>Dernière mise à jour : 1er janvier 2025</p>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Données collectées</h3>
-                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>FidèleApp collecte : nom, prénom, email, téléphone, adresse du commerce, données de facturation. Ces données sont collectées lors de la création du compte et de l'utilisation du service.</p>
+                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>FidèleApp collecte : nom, prénom, email, téléphone et adresse du commerce. Ces données sont collectées lors de la création du compte et de l'utilisation du service.</p>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Utilisation des données</h3>
-                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75 }}>Vos données sont utilisées exclusivement pour la gestion de votre compte, l'envoi de notifications et le support client. Vos données ne sont jamais vendues à des tiers.</p>
+                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75 }}>Vos données sont utilisées exclusivement pour la gestion de votre compte et le support client. Vos données ne sont jamais vendues à des tiers.</p>
               </div>
             )}
 
@@ -311,11 +261,7 @@ export default function MonCompte() {
                     <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.65 }}><strong style={{ color: '#0F172A' }}>{t}</strong> — {txt}</div>
                   </div>
                 ))}
-                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginTop: 12 }}>Pour exercer vos droits : <span style={{ color: '#2563EB', fontWeight: 600 }}>rgpd@fidele-app.fr</span></p>
-                <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                  <button style={{ background: '#EFF6FF', border: '1.5px solid #93C5FD', color: '#2563EB', fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Télécharger mes données</button>
-                  <button style={{ background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#DC2626', fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Demander la suppression</button>
-                </div>
+                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginTop: 12 }}>Pour exercer vos droits : <span style={{ color: '#2563EB', fontWeight: 600 }}>contact@fidele-app.fr</span></p>
               </div>
             )}
 
@@ -323,9 +269,9 @@ export default function MonCompte() {
               <div>
                 <h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 16 }}>Mentions légales</h2>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Éditeur</h3>
-                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>FidèleApp SAS — Capital : 10 000 € — RCS Paris : 123 456 789<br />42 rue du Commerce, 75015 Paris<br />contact@fidele-app.fr</p>
+                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75, marginBottom: 12 }}>FidèleApp — Version bêta<br />contact@fidele-app.fr</p>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Hébergement</h3>
-                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75 }}>OVH SAS, 2 rue Kellermann, 59100 Roubaix. Données hébergées en France et en Allemagne, conformes au RGPD.</p>
+                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.75 }}>Supabase Inc. (États-Unis) pour la base de données. Les mentions légales complètes seront publiées lors du lancement officiel.</p>
               </div>
             )}
 
@@ -353,3 +299,4 @@ export default function MonCompte() {
     </div>
   )
 }
+
