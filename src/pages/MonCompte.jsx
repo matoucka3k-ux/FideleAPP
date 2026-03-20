@@ -85,7 +85,7 @@ export default function MonCompte() {
     background: disabled ? '#F8FAFF' : '#fff', width: '100%'
   })
 
-  if (loading || !commercant) return (
+  if (!commercant) return (
     <div style={{ minHeight: '100vh', background: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ fontSize: 14, color: '#94A3B8', fontWeight: 600 }}>Chargement...</div>
     </div>
@@ -149,7 +149,12 @@ export default function MonCompte() {
                 fields.map(([label, key, full, disabled]) => (
                   <div key={label} style={{ gridColumn: full ? '1/-1' : 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <label style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</label>
-                    <input value={form[key]} disabled={disabled} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} style={inp(disabled)} />
+                    <input
+                      value={form[key]}
+                      disabled={disabled}
+                      onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                      style={inp(disabled)}
+                    />
                   </div>
                 ))
               ) : (
