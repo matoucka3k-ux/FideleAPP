@@ -86,6 +86,7 @@ export default function Landing() {
             <a href="#testi">Témoignages</a>
           </div>
           <div className={styles.navActions}>
+            <button className={styles.btnGhost} onClick={() => navigate('/ma-carte')} title="Espace client fidélité" style={{ fontSize: 13 }}>Ma carte</button>
             <button className={styles.btnGhost} onClick={() => navigate('/connexion')}>Connexion</button>
             <button className={styles.btnBlue} onClick={() => navigate('/inscription')}>Créer mon programme</button>
           </div>
@@ -457,3 +458,4 @@ export default function Landing() {
     </div>
   )
 }
+
