@@ -81,7 +81,7 @@ export default function ClientSignup() {
 
       await rejoindreCommerce(client)
     } catch (e) {
-      console.error(e)
+      console.error('Erreur inscription:', e.message)
       setError(e.message || 'Une erreur est survenue. Réessayez.')
     } finally {
       setLoading(false)
@@ -113,7 +113,7 @@ export default function ClientSignup() {
       setIsNew(false)
       await rejoindreCommerce(client)
     } catch (e) {
-      console.error(e)
+      console.error('Erreur connexion:', e.message)
       setError(e.message || 'Email ou mot de passe incorrect.')
     } finally {
       setLoading(false)
@@ -121,45 +121,21 @@ export default function ClientSignup() {
   }
 
   async function rejoindreCommerce(client) {
-    // Vérifie si déjà adhérent à ce commerce
-    const { data: existingAdhesion } = await supabase
-      .from('adhesions')
-      .select('id')
-      .eq('client_id', client.id)
-      .eq('commercant_id', commercant.id)
-      .maybeSingle()
-
-    // ✅ FIX : si déjà adhérent, on ne bloque pas — on redirige directement
-    if (existingAdhesion) {
-      setClientData(client)
-      sessionStorage.setItem('client_data', JSON.stringify(client))
-      sessionStorage.setItem('commercant_data', JSON.stringify(commercant))
-      setIsNew(false)
-      setStep('welcome')
-      return
-    }
-
-    // Nouveau — on crée l'adhésion
-    await supabase.from('adhesions').insert({
-      client_id: client.id,
-      commercant_id: commercant.id,
-      points: commercant.bonus_bienvenue || 0,
+    // Utilise la fonction sécurisée SECURITY DEFINER côté Supabase
+    // => empêche toute falsification des points ou adhésions
+    const { data, error } = await supabase.rpc('rejoindre_programme', {
+      p_commercant_id: commercant.id,
     })
 
-    if (commercant.bonus_bienvenue > 0) {
-      await supabase.from('transactions').insert({
-        client_id: client.id,
-        commercant_id: commercant.id,
-        points: commercant.bonus_bienvenue,
-        type: 'bonus_bienvenue',
-        description: 'Bonus de bienvenue — ' + commercant.nom_commerce,
-      })
-    }
+    if (error) throw error
+
+    const deja_membre = data?.status === 'already_member'
 
     setClientData(client)
-    sessionStorage.setItem('client_data', JSON.stringify(client))
-    sessionStorage.setItem('commercant_data', JSON.stringify(commercant))
-    setIsNew(true)
+    // Stocke uniquement les IDs (pas les données complètes) pour éviter la fuite de données
+    sessionStorage.setItem('fidele_client_id', client.id)
+    sessionStorage.setItem('fidele_commercant_id', commercant.id)
+    setIsNew(!deja_membre)
     setStep('welcome')
   }
 
