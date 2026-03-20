@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase.js'
 import styles from './ClientCard.module.css'
 
@@ -204,7 +203,6 @@ export default function ClientCard() {
 
   const firstReward = recompenses.find(r => r.points_requis > (client.points ?? 0))
   const pct = firstReward ? Math.min(100, ((client.points ?? 0) / firstReward.points_requis) * 100) : 100
-  const qrValue = `${window.location.origin}/ma-carte`
   const prenom = client.nom_complet?.split(' ')[0] || client.nom_complet
 
   return (
@@ -212,7 +210,7 @@ export default function ClientCard() {
       <div className={styles.header}>
         <div className={styles.shopRow}>
 
-          {/* ── Sélecteur d'enseigne (visible si ≥ 2 adhésions) ── */}
+          {/* ── Sélecteur d'enseigne ── */}
           {adhesions.length > 1 && (
             <div ref={pickerRef} style={{ position: 'relative', flexShrink: 0 }}>
               <button
@@ -256,6 +254,7 @@ export default function ClientCard() {
             </div>
           )}
 
+          {/* Logo + nom du commerce actif */}
           <div className={styles.shopLogo}>{commercant?.nom_commerce?.[0]?.toUpperCase() || '?'}</div>
           <div style={{ flex: 1 }}>
             <div className={styles.shopName}>{commercant?.nom_commerce || 'Mon programme'}</div>
@@ -278,15 +277,6 @@ export default function ClientCard() {
             ? `Encore ${firstReward.points_requis - (client.points ?? 0)} pts → ${firstReward.nom}`
             : recompenses.length > 0 ? 'Toutes les récompenses débloquées !' : 'Faites vos achats pour cumuler des points'}
         </div>
-      </div>
-
-      <div className={styles.qrSection}>
-        <div className={styles.qrTitle}>Mon QR code</div>
-        <div className={styles.qrSub}>Présentez-le à la caisse pour créditer vos points</div>
-        <div className={styles.qrBox}>
-          <QRCodeSVG value={qrValue} size={120} fgColor="#0F172A" bgColor="#ffffff" level="M" />
-        </div>
-        <div className={styles.qrId}>{client.nom_complet} · #{client.id.slice(0, 8).toUpperCase()}</div>
       </div>
 
       <div className={styles.body}>
@@ -333,4 +323,5 @@ export default function ClientCard() {
     </div>
   )
 }
+
 
