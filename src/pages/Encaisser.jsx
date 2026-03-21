@@ -23,13 +23,24 @@ export default function Encaisser() {
     ? `${window.location.origin}/rejoindre/${commercant.slug}`
     : `${window.location.origin}/rejoindre`
 
+  // Échappe les caractères HTML pour éviter les injections XSS dans document.write
+  const escapeHtml = (str) =>
+    String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+
   const handlePrint = () => {
+    const safeName = escapeHtml(commercant?.nom_commerce || 'Ma boutique')
+    const safeUrl = encodeURIComponent(qrUrl)
     const printWindow = window.open('', '_blank')
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>QR Code — ${commercant?.nom_commerce || 'Ma boutique'}</title>
+          <title>QR Code — ${safeName}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
@@ -60,10 +71,10 @@ export default function Encaisser() {
         </head>
         <body>
           <div class="container">
-            <h1>${commercant?.nom_commerce || 'Ma boutique'}</h1>
+            <h1>${safeName}</h1>
             <p>Scannez ce QR code pour rejoindre<br/>notre programme de fidélité !</p>
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" />
-            <div class="url">${qrUrl}</div>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${safeUrl}" />
+            <div class="url">${escapeHtml(qrUrl)}</div>
           </div>
           <script>window.onload = () => { window.print(); window.onafterprint = () => window.close() }<\/script>
         </body>
@@ -149,18 +160,18 @@ export default function Encaisser() {
   const valider = async () => {
     setSaving(true)
     try {
-      await supabase.rpc('crediter_points', {
+      const { error } = await supabase.rpc('crediter_points', {
         p_client_id: client.id,
         p_commercant_id: user.id,
         p_points: total,
         p_description: Object.entries(grouped).map(([n, g]) => `${n}${g.cnt > 1 ? ` ×${g.cnt}` : ''}`).join(', ')
       })
-      await supabase.from('clients').update({ points: client.points + total }).eq('id', client.id)
+      if (error) throw error
       setState('succes')
       loadClients()
     } catch (e) {
-      console.error(e)
-      setState('succes')
+      console.error('Erreur crédit points:', e.message)
+      alert('Erreur lors du crédit des points. Réessayez.')
     } finally {
       setSaving(false)
     }
@@ -171,23 +182,31 @@ export default function Encaisser() {
     setSaving(true)
     try {
       // Insérer transaction échange
-      await supabase.from('transactions').insert({
+      const { error: txError } = await supabase.from('transactions').insert({
         client_id: client.id,
         commercant_id: user.id,
         points: -recompense.points_requis,
         type: 'echange',
         description: recompense.nom,
       })
-      // Déduire les points du client
-      await supabase.from('clients')
-        .update({ points: client.points - recompense.points_requis })
+      if (txError) throw txError
+
+      // Déduire les points dans clients ET adhesions pour garder la cohérence
+      const newPoints = client.points - recompense.points_requis
+      const { error: upError } = await supabase.from('clients')
+        .update({ points: newPoints })
         .eq('id', client.id)
+      if (upError) throw upError
+      await supabase.from('adhesions')
+        .update({ points: newPoints })
+        .eq('client_id', client.id)
+        .eq('commercant_id', user.id)
 
       setRecompenseUsed(recompense)
       setState('succes_recompense')
       loadClients()
     } catch (e) {
-      console.error(e)
+      console.error('Erreur échange récompense:', e.message)
       alert('Erreur lors de l\'échange. Réessayez.')
     } finally {
       setSaving(false)
@@ -492,3 +511,4 @@ export default function Encaisser() {
     </div>
   )
 }
+
