@@ -20,28 +20,24 @@ export default function MesClients() {
 
   useEffect(() => { if (user) { loadClients(); loadMessages() } }, [user])
 
- async function sendMessage() {
-  if (!msgContenu.trim()) return
-  setMsgSending(true)
-  try {
-    const { error } = await supabase.from('messages').insert({
-      commercant_id: user.id,
-      titre: msgTitre.trim() || null,
-      contenu: msgContenu.trim(),
-    })
-    if (error) throw error
-
- 
+  async function loadMessages() {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('commercant_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    setSentMessages(data || [])
   }
 
   async function sendMessage() {
     if (!msgContenu.trim()) return
     setMsgSending(true)
     try {
-      const { error } = await supabase.from('messages').insert({
-        commercant_id: user.id,
-        titre: msgTitre.trim() || null,
-        contenu: msgContenu.trim(),
+      const { error } = await supabase.rpc('envoyer_message', {
+        p_commercant_id: user.id,
+        p_titre: msgTitre.trim() || null,
+        p_contenu: msgContenu.trim(),
       })
       if (error) throw error
       setMsgTitre('')
