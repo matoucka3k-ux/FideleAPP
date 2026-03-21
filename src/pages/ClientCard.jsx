@@ -15,12 +15,10 @@ export default function ClientCard() {
   const [tab, setTab] = useState('carte')
   const [showPicker, setShowPicker] = useState(false)
 
-  // Formulaire connexion
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
 
-  // Mon compte
   const [editAccount, setEditAccount] = useState(false)
   const [accountForm, setAccountForm] = useState({ nom_complet: '', telephone: '' })
   const [savingAccount, setSavingAccount] = useState(false)
@@ -44,7 +42,6 @@ export default function ClientCard() {
     if (client?.id && client?.commercant_id) loadData()
   }, [client?.id, client?.commercant_id])
 
-  // Recharge les données quand l'onglet redevient actif (ex : après un encaissement)
   useEffect(() => {
     const handleVisible = () => {
       if (!document.hidden && client?.id && client?.commercant_id) loadData()
@@ -64,14 +61,12 @@ export default function ClientCard() {
   }, [])
 
   async function loadClientFromSession(userId) {
-    // Cherche d'abord par id (cas normal)
     let { data, error } = await supabase
       .from('clients')
       .select('*')
       .eq('id', userId)
       .maybeSingle()
 
-    // Fallback: cherche par email si l'id ne correspond pas (ex: double signup)
     if (!data && !error) {
       const { data: { user } } = await supabase.auth.getUser()
       if (user?.email) {
@@ -162,13 +157,11 @@ export default function ClientCard() {
       supabase.from('transactions').select('*').eq('client_id', client.id).eq('commercant_id', client.commercant_id).order('created_at', { ascending: false }).limit(30),
       supabase.from('adhesions').select('points').eq('client_id', client.id).eq('commercant_id', client.commercant_id).maybeSingle(),
       supabase.from('commercants').select('*').eq('id', client.commercant_id).single(),
-      // messages: graceful si la table n'existe pas encore
-      supabase.from('messages').select('*').eq('commercant_id', client.commercant_id).order('created_at', { ascending: false }).limit(10),
+      supabase.from('messages_commercants').select('*').eq('commercant_id', client.commercant_id).order('created_at', { ascending: false }).limit(10),
     ])
     setRecompenses(rewRes.data || [])
     setTransactions(txRes.data || [])
     setMessages(msgRes.data || [])
-    // Priorité à adhesions.points (par commerce), fallback sur clients.points si non défini
     const freshPoints = Math.max(adhRes.data?.points ?? 0, client.points ?? 0)
     setClient(prev => ({ ...prev, points: freshPoints }))
     if (commRes.data) setCommercant(commRes.data)
@@ -197,14 +190,12 @@ export default function ClientCard() {
     }
   }
 
-  // ── Chargement ──────────────────────────────────────────────────
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#94A3B8', fontSize: 14 }}>
       Chargement...
     </div>
   )
 
-  // ── Formulaire de connexion ──────────────────────────────────────
   if (!client) return (
     <div className={styles.loginPage}>
       <div className={styles.loginHeader}>
@@ -252,7 +243,6 @@ export default function ClientCard() {
     </div>
   )
 
-  // ── Aucune adhésion ──────────────────────────────────────────────
   if (!client.commercant_id) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Plus Jakarta Sans, sans-serif', flexDirection: 'column', gap: 12, padding: 24, textAlign: 'center' }}>
       <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>Aucune enseigne</div>
@@ -270,11 +260,9 @@ export default function ClientCard() {
   return (
     <div className={styles.page}>
 
-      {/* ── Header ───────────────────────────────────────────────── */}
       <div className={styles.header}>
         <div className={styles.shopRow}>
 
-          {/* Sélecteur multi-enseignes */}
           {adhesions.length > 1 && (
             <div ref={pickerRef} style={{ position: 'relative', flexShrink: 0 }}>
               <button onClick={() => setShowPicker(v => !v)} className={styles.pickerBtn}>☰</button>
@@ -313,7 +301,6 @@ export default function ClientCard() {
           </div>
         </div>
 
-        {/* Contenu header selon l'onglet actif */}
         {tab === 'carte' && (
           <>
             <div className={styles.greeting}>Bonjour {prenom} 👋</div>
@@ -351,10 +338,8 @@ export default function ClientCard() {
         )}
       </div>
 
-      {/* ── Body ─────────────────────────────────────────────────── */}
       <div className={styles.body}>
 
-        {/* ── TAB : Ma carte ─────────────────────────────────────── */}
         {tab === 'carte' && (
           <>
             {recompenses.length > 0 && (
@@ -399,7 +384,6 @@ export default function ClientCard() {
           </>
         )}
 
-        {/* ── TAB : Points & Récompenses ─────────────────────────── */}
         {tab === 'points' && (
           <>
             <div className={styles.pointsSummary}>
@@ -478,7 +462,6 @@ export default function ClientCard() {
           </>
         )}
 
-        {/* ── TAB : Messages ─────────────────────────────────────── */}
         {tab === 'messages' && (
           <>
             {messages.length === 0 ? (
@@ -513,7 +496,6 @@ export default function ClientCard() {
           </>
         )}
 
-        {/* ── TAB : Mon compte ───────────────────────────────────── */}
         {tab === 'compte' && (
           <>
             <div className={styles.accountCard}>
@@ -528,12 +510,9 @@ export default function ClientCard() {
               <div style={{
                 background: accountMsg.includes('Erreur') ? '#FEF2F2' : '#F0FDF4',
                 border: `1px solid ${accountMsg.includes('Erreur') ? '#FECACA' : '#BBF7D0'}`,
-                borderRadius: 9,
-                padding: '10px 14px',
-                fontSize: 13,
+                borderRadius: 9, padding: '10px 14px', fontSize: 13,
                 color: accountMsg.includes('Erreur') ? '#DC2626' : '#16A34A',
-                fontWeight: 600,
-                marginBottom: 14,
+                fontWeight: 600, marginBottom: 14,
               }}>
                 {accountMsg}
               </div>
@@ -600,7 +579,6 @@ export default function ClientCard() {
               </div>
             )}
 
-            {/* Mes enseignes */}
             <div className={styles.sectionTitle} style={{ marginTop: 24 }}>Mes enseignes ({adhesions.length})</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
               {adhesions.map(adh => {
@@ -632,7 +610,6 @@ export default function ClientCard() {
         )}
       </div>
 
-      {/* ── Barre de navigation basse ────────────────────────────── */}
       <div className={styles.bottomNav}>
         <button onClick={() => setTab('carte')} className={tab === 'carte' ? styles.navItemActive : styles.navItem}>
           <span className={styles.navIcon}>🪪</span>
@@ -654,7 +631,3 @@ export default function ClientCard() {
     </div>
   )
 }
-
-
-
-
