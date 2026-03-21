@@ -8,7 +8,9 @@ const CACHE_KEY = 'fidele_commercant'
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [commercant, setCommercant] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(CACHE_KEY)) } catch { return null }
+    // Charge le cache immédiatement — affichage instantané sans attendre le réseau
+    // sessionStorage (effacé à la fermeture du navigateur, non persisté sur disque)
+    try { return JSON.parse(sessionStorage.getItem(CACHE_KEY)) } catch { return null }
   })
   const [loading, setLoading] = useState(true)
 
@@ -17,10 +19,12 @@ export function AuthProvider({ children }) {
       const u = session?.user ?? null
       setUser(u)
       if (u) {
-        if (localStorage.getItem(CACHE_KEY)) setLoading(false)
+        // Si on a déjà le cache, on enlève le spinner tout de suite
+        // et on rafraîchit en arrière-plan
+        if (sessionStorage.getItem(CACHE_KEY)) setLoading(false)
         loadCommercant(u.id)
       } else {
-        localStorage.removeItem(CACHE_KEY)
+        sessionStorage.removeItem(CACHE_KEY)
         setLoading(false)
       }
     })
@@ -29,7 +33,7 @@ export function AuthProvider({ children }) {
       const u = session?.user ?? null
       setUser(u)
       if (!u) {
-        localStorage.removeItem(CACHE_KEY)
+        sessionStorage.removeItem(CACHE_KEY)
         setCommercant(null)
         setLoading(false)
       }
@@ -48,7 +52,7 @@ export function AuthProvider({ children }) {
         .eq('id', userId)
         .single()
       if (error) throw error
-      localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(data))
       setCommercant(data)
     } catch (e) {
       console.error('Erreur chargement commerçant:', e.message)
@@ -61,11 +65,13 @@ export function AuthProvider({ children }) {
   async function signUp({ nomComplet, nomCommerce, typeCommerce, email, password }) {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
-    const slug = nomCommerce
+    const baseSlug = nomCommerce
       .toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
+    const randomSuffix = Math.random().toString(36).slice(2, 8)
+    const slug = `${baseSlug}-${randomSuffix}`
     const { error: profileError } = await supabase
       .from('commercants')
       .insert({
@@ -116,4 +122,3 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext)
-
