@@ -12,8 +12,45 @@ export default function MesClients() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({ nom: '', email: '', telephone: '' })
+const [sentMessages, setSentMessages] = useState([])
+const [msgTitre, setMsgTitre] = useState('')
+const [msgContenu, setMsgContenu] = useState('')
+const [msgSending, setMsgSending] = useState(false)
+const [msgSuccess, setMsgSuccess] = useState(false)
 
-  useEffect(() => { if (user) loadClients() }, [user])
+useEffect(() => { if (user) { loadClients(); loadMessages() } }, [user])
+
+async function loadMessages() {
+  const { data } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('commercant_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(10)
+  setSentMessages(data || [])
+}
+
+async function sendMessage() {
+  if (!msgContenu.trim()) return
+  setMsgSending(true)
+  try {
+    const { error } = await supabase.from('messages').insert({
+      commercant_id: user.id,
+      titre: msgTitre.trim() || null,
+      contenu: msgContenu.trim(),
+    })
+    if (error) throw error
+    setMsgTitre('')
+    setMsgContenu('')
+    setMsgSuccess(true)
+    setTimeout(() => setMsgSuccess(false), 3000)
+    loadMessages()
+  } catch (e) {
+    alert('Erreur lors de l\'envoi. Réessayez.')
+  } finally {
+    setMsgSending(false)
+  }
+}
 
   async function loadClients() {
     setLoading(true)
@@ -207,6 +244,68 @@ export default function MesClients() {
             </table>
           )}
         </div>
+      </div>
+        {/* MESSAGES AUX CLIENTS */}
+        <div style={{ background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '22px 24px', marginTop: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', border: '1px solid #BFDBFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💬</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>Message à vos clients</div>
+              <div style={{ fontSize: 13, color: '#94A3B8' }}>Envoyez un message visible sur la carte fidélité de tous vos clients</div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, alignItems: 'start' }}>
+            <div>
+              <input
+                style={{ ...s.searchInput, maxWidth: '100%', marginBottom: 10, display: 'block' }}
+                placeholder="Titre du message (optionnel)"
+                value={msgTitre}
+                onChange={e => setMsgTitre(e.target.value)}
+                maxLength={80}
+              />
+              <textarea
+                style={{ ...s.searchInput, maxWidth: '100%', minHeight: 90, resize: 'vertical', display: 'block', marginBottom: 12, lineHeight: 1.6 }}
+                placeholder="Écrivez votre message… promotion, annonce, infos boutique…"
+                value={msgContenu}
+                onChange={e => setMsgContenu(e.target.value)}
+                maxLength={500}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button
+                  onClick={sendMessage}
+                  disabled={!msgContenu.trim() || msgSending}
+                  style={{ background: '#2563EB', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', opacity: (!msgContenu.trim() || msgSending) ? 0.5 : 1 }}
+                >
+                  {msgSending ? 'Envoi…' : 'Envoyer à tous mes clients'}
+                </button>
+                {msgSuccess && (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#16A34A' }}>✓ Message envoyé !</div>
+                )}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                Messages récents
+              </div>
+              {sentMessages.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#CBD5E1', textAlign: 'center', padding: '16px 0' }}>Aucun message envoyé</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {sentMessages.map(m => (
+                    <div key={m.id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, padding: '10px 12px' }}>
+                      {m.titre && <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>{m.titre}</div>}
+                      <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.6, marginBottom: 5 }}>{m.contenu}</div>
+                      <div style={{ fontSize: 11, color: '#94A3B8' }}>
+                        {new Date(m.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
       </div>
 
       {/* MODAL AJOUT CLIENT */}
