@@ -162,7 +162,7 @@ export default function ClientCard() {
     setRecompenses(rewRes.data || [])
     setTransactions(txRes.data || [])
     setMessages(msgRes.data || [])
-    const freshPoints = Math.max(adhRes.data?.points ?? 0, client.points ?? 0)
+    const freshPoints = adhRes.data?.points ?? 0  // ← FIX: points isolés par marchand
     setClient(prev => ({ ...prev, points: freshPoints }))
     if (commRes.data) setCommercant(commRes.data)
   }
@@ -631,3 +631,4 @@ export default function ClientCard() {
     </div>
   )
 }
+
