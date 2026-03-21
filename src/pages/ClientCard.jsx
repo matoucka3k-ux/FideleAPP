@@ -15,10 +15,12 @@ export default function ClientCard() {
   const [tab, setTab] = useState('carte')
   const [showPicker, setShowPicker] = useState(false)
 
+  // Formulaire connexion
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
 
+  // Mon compte
   const [editAccount, setEditAccount] = useState(false)
   const [accountForm, setAccountForm] = useState({ nom_complet: '', telephone: '' })
   const [savingAccount, setSavingAccount] = useState(false)
@@ -42,6 +44,15 @@ export default function ClientCard() {
     if (client?.id && client?.commercant_id) loadData()
   }, [client?.id, client?.commercant_id])
 
+  // Recharge les données quand l'onglet redevient actif (ex : après un encaissement)
+  useEffect(() => {
+    const handleVisible = () => {
+      if (!document.hidden && client?.id && client?.commercant_id) loadData()
+    }
+    document.addEventListener('visibilitychange', handleVisible)
+    return () => document.removeEventListener('visibilitychange', handleVisible)
+  }, [client?.id, client?.commercant_id])
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (pickerRef.current && !pickerRef.current.contains(e.target)) {
@@ -53,13 +64,15 @@ export default function ClientCard() {
   }, [])
 
   async function loadClientFromSession(userId) {
-    let { data } = await supabase
+    // Cherche d'abord par id (cas normal)
+    let { data, error } = await supabase
       .from('clients')
       .select('*')
       .eq('id', userId)
       .maybeSingle()
 
-    if (!data) {
+    // Fallback: cherche par email si l'id ne correspond pas (ex: double signup)
+    if (!data && !error) {
       const { data: { user } } = await supabase.auth.getUser()
       if (user?.email) {
         const { data: byEmail } = await supabase
@@ -89,7 +102,7 @@ export default function ClientCard() {
   function parseSupabaseError(err) {
     const msg = err?.message || ''
     if (msg.includes('Email not confirmed') || msg.includes('email_not_confirmed')) {
-      return "Votre email n'est pas encore confirmé. Vérifiez votre boîte mail (et vos spams)."
+      return 'Votre email n\'est pas encore confirmé. Vérifiez votre boîte mail (et vos spams).'
     }
     if (msg.includes('Invalid login credentials') || msg.includes('invalid_credentials')) {
       return 'Email ou mot de passe incorrect.'
@@ -147,19 +160,25 @@ export default function ClientCard() {
     const [rewRes, txRes, adhRes, commRes, msgRes] = await Promise.all([
       supabase.from('recompenses').select('*').eq('commercant_id', client.commercant_id).eq('actif', true).order('points_requis'),
       supabase.from('transactions').select('*').eq('client_id', client.id).eq('commercant_id', client.commercant_id).order('created_at', { ascending: false }).limit(30),
-      supabase.from('adhesions').select('points').eq('client_id', client.id).eq('commercant_id', client.commercant_id).single(),
+      supabase.from('adhesions').select('points').eq('client_id', client.id).eq('commercant_id', client.commercant_id).maybeSingle(),
       supabase.from('commercants').select('*').eq('id', client.commercant_id).single(),
+      // messages: graceful si la table n'existe pas encore
       supabase.from('messages').select('*').eq('commercant_id', client.commercant_id).order('created_at', { ascending: false }).limit(10),
     ])
     setRecompenses(rewRes.data || [])
     setTransactions(txRes.data || [])
     setMessages(msgRes.data || [])
-    if (adhRes.data) setClient(prev => ({ ...prev, points: adhRes.data.points }))
+    // Priorité à adhesions.points (par commerce), fallback sur clients.points si non défini
+    const freshPoints = adhRes.data?.points ?? client.points ?? 0
+    setClient(prev => ({ ...prev, points: freshPoints }))
     if (commRes.data) setCommercant(commRes.data)
   }
 
   async function saveAccount() {
-    if (!accountForm.nom_complet.trim()) { setAccountMsg('Le nom est requis.'); return }
+    if (!accountForm.nom_complet.trim()) {
+      setAccountMsg('Le nom est requis.')
+      return
+    }
     setSavingAccount(true)
     setAccountMsg('')
     try {
@@ -178,12 +197,14 @@ export default function ClientCard() {
     }
   }
 
+  // ── Chargement ──────────────────────────────────────────────────
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#94A3B8', fontSize: 14 }}>
       Chargement...
     </div>
   )
 
+  // ── Formulaire de connexion ──────────────────────────────────────
   if (!client) return (
     <div className={styles.loginPage}>
       <div className={styles.loginHeader}>
@@ -195,30 +216,50 @@ export default function ClientCard() {
         {loginError && <div className={styles.errorBox}>{loginError}</div>}
         <div className={styles.field}>
           <label>Email</label>
-          <input type="email" placeholder="marie@email.fr" value={loginForm.email}
-            onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))} autoComplete="email" />
+          <input
+            type="email"
+            placeholder="marie@email.fr"
+            value={loginForm.email}
+            onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))}
+            autoComplete="email"
+          />
         </div>
         <div className={styles.field}>
           <label>Mot de passe</label>
-          <input type="password" placeholder="Votre mot de passe" value={loginForm.password}
-            onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))} autoComplete="current-password" />
+          <input
+            type="password"
+            placeholder="Votre mot de passe"
+            value={loginForm.password}
+            onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
+            autoComplete="current-password"
+          />
         </div>
-        <button type="submit" className={styles.btnPrimary} disabled={loginLoading} style={{ opacity: loginLoading ? .7 : 1, marginTop: 6 }}>
+        <button
+          type="submit"
+          className={styles.btnPrimary}
+          disabled={loginLoading}
+          style={{ opacity: loginLoading ? .7 : 1, marginTop: 6 }}
+        >
           {loginLoading ? 'Connexion...' : 'Accéder à ma carte →'}
         </button>
         <div className={styles.loginFooter}>
           Pas encore de compte ?<br />
-          <span className={styles.link} onClick={() => navigate('/rejoindre')}>Scannez le QR code de votre commerce</span>
+          <span className={styles.link} onClick={() => navigate('/rejoindre')}>
+            Scannez le QR code de votre commerce
+          </span>
         </div>
       </form>
     </div>
   )
 
+  // ── Aucune adhésion ──────────────────────────────────────────────
   if (!client.commercant_id) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Plus Jakarta Sans, sans-serif', flexDirection: 'column', gap: 12, padding: 24, textAlign: 'center' }}>
       <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>Aucune enseigne</div>
-      <div style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6 }}>Scannez le QR code d'un commerce pour rejoindre son programme.</div>
-      <button onClick={handleLogout} style={{ marginTop: 12, background: 'none', border: '1.5px solid #E2E8F0', color: '#64748B', fontSize: 13, fontWeight: 600, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Déconnexion</button>
+      <div style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6 }}>Scannez le QR code d'un commerce pour rejoindre son programme de fidélité.</div>
+      <button onClick={handleLogout} style={{ marginTop: 12, background: 'none', border: '1.5px solid #E2E8F0', color: '#64748B', fontSize: 13, fontWeight: 600, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+        Déconnexion
+      </button>
     </div>
   )
 
@@ -228,8 +269,12 @@ export default function ClientCard() {
 
   return (
     <div className={styles.page}>
+
+      {/* ── Header ───────────────────────────────────────────────── */}
       <div className={styles.header}>
         <div className={styles.shopRow}>
+
+          {/* Sélecteur multi-enseignes */}
           {adhesions.length > 1 && (
             <div ref={pickerRef} style={{ position: 'relative', flexShrink: 0 }}>
               <button onClick={() => setShowPicker(v => !v)} className={styles.pickerBtn}>☰</button>
@@ -239,8 +284,12 @@ export default function ClientCard() {
                   {adhesions.map(adh => {
                     const isActive = adh.commercant_id === client.commercant_id
                     return (
-                      <button key={adh.commercant_id} onClick={() => switchCommerce(adh.commercant_id)}
-                        className={styles.pickerItem} style={{ background: isActive ? '#EFF6FF' : 'transparent' }}>
+                      <button
+                        key={adh.commercant_id}
+                        onClick={() => switchCommerce(adh.commercant_id)}
+                        className={styles.pickerItem}
+                        style={{ background: isActive ? '#EFF6FF' : 'transparent' }}
+                      >
                         <div className={styles.pickerLogo} style={{ background: isActive ? '#2563EB' : '#F1F5F9', color: isActive ? '#fff' : '#64748B' }}>
                           {adh.commercants?.nom_commerce?.[0]?.toUpperCase() || '?'}
                         </div>
@@ -256,6 +305,7 @@ export default function ClientCard() {
               )}
             </div>
           )}
+
           <div className={styles.shopLogo}>{commercant?.nom_commerce?.[0]?.toUpperCase() || '?'}</div>
           <div style={{ flex: 1 }}>
             <div className={styles.shopName}>{commercant?.nom_commerce || 'Mon programme'}</div>
@@ -263,15 +313,21 @@ export default function ClientCard() {
           </div>
         </div>
 
+        {/* Contenu header selon l'onglet actif */}
         {tab === 'carte' && (
           <>
             <div className={styles.greeting}>Bonjour {prenom} 👋</div>
             <div className={styles.ptsBig}>{client.points ?? 0}</div>
             <div className={styles.ptsLabel}>points</div>
-            <div className={styles.barBg}><div className={styles.barFill} style={{ width: `${pct}%` }} /></div>
+            <div className={styles.barBg}>
+              <div className={styles.barFill} style={{ width: `${pct}%` }} />
+            </div>
             <div className={styles.ptsNext}>
-              {firstReward ? `Encore ${firstReward.points_requis - (client.points ?? 0)} pts → ${firstReward.nom}`
-                : recompenses.length > 0 ? 'Toutes les récompenses débloquées !' : 'Faites vos achats pour cumuler des points'}
+              {firstReward
+                ? `Encore ${firstReward.points_requis - (client.points ?? 0)} pts → ${firstReward.nom}`
+                : recompenses.length > 0
+                  ? 'Toutes les récompenses débloquées !'
+                  : 'Faites vos achats pour cumuler des points'}
             </div>
           </>
         )}
@@ -295,7 +351,10 @@ export default function ClientCard() {
         )}
       </div>
 
+      {/* ── Body ─────────────────────────────────────────────────── */}
       <div className={styles.body}>
+
+        {/* ── TAB : Ma carte ─────────────────────────────────────── */}
         {tab === 'carte' && (
           <>
             {recompenses.length > 0 && (
@@ -316,10 +375,13 @@ export default function ClientCard() {
                 </div>
               </>
             )}
+
             <div className={styles.sectionTitle}>Dernières transactions</div>
             <div className={styles.history}>
               {transactions.length === 0 ? (
-                <div style={{ fontSize: 13, color: '#CBD5E1', textAlign: 'center', padding: '16px 0' }}>Aucune transaction pour l'instant</div>
+                <div style={{ fontSize: 13, color: '#CBD5E1', textAlign: 'center', padding: '16px 0' }}>
+                  Aucune transaction pour l'instant
+                </div>
               ) : (
                 transactions.slice(0, 5).map(t => (
                   <div key={t.id} className={styles.histRow}>
@@ -337,6 +399,7 @@ export default function ClientCard() {
           </>
         )}
 
+        {/* ── TAB : Points & Récompenses ─────────────────────────── */}
         {tab === 'points' && (
           <>
             <div className={styles.pointsSummary}>
@@ -355,6 +418,7 @@ export default function ClientCard() {
                 </>
               )}
             </div>
+
             {recompenses.length > 0 ? (
               <>
                 <div className={styles.sectionTitle}>Toutes les récompenses</div>
@@ -371,7 +435,9 @@ export default function ClientCard() {
                               <div style={{ background: '#E8F0FE', borderRadius: 999, height: 4 }}>
                                 <div style={{ background: '#2563EB', borderRadius: 999, height: 4, width: `${Math.min(100, ((client.points ?? 0) / r.points_requis) * 100)}%`, transition: 'width .4s' }} />
                               </div>
-                              <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 3 }}>Encore {r.points_requis - (client.points ?? 0)} pts</div>
+                              <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 3 }}>
+                                Encore {r.points_requis - (client.points ?? 0)} pts
+                              </div>
                             </div>
                           )}
                         </div>
@@ -384,12 +450,17 @@ export default function ClientCard() {
                 </div>
               </>
             ) : (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: 13 }}>Aucune récompense configurée.</div>
+              <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: 13 }}>
+                Aucune récompense configurée pour ce commerce.
+              </div>
             )}
+
             <div className={styles.sectionTitle}>Historique complet</div>
             <div className={styles.history}>
               {transactions.length === 0 ? (
-                <div style={{ fontSize: 13, color: '#CBD5E1', textAlign: 'center', padding: '16px 0' }}>Aucune transaction</div>
+                <div style={{ fontSize: 13, color: '#CBD5E1', textAlign: 'center', padding: '16px 0' }}>
+                  Aucune transaction
+                </div>
               ) : (
                 transactions.map(t => (
                   <div key={t.id} className={styles.histRow}>
@@ -407,13 +478,16 @@ export default function ClientCard() {
           </>
         )}
 
+        {/* ── TAB : Messages ─────────────────────────────────────── */}
         {tab === 'messages' && (
           <>
             {messages.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px 20px', color: '#94A3B8' }}>
                 <div style={{ fontSize: 40, marginBottom: 14 }}>💬</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#475569', marginBottom: 6 }}>Aucun message</div>
-                <div style={{ fontSize: 13, lineHeight: 1.7 }}>{commercant?.nom_commerce} n'a pas encore envoyé de messages.</div>
+                <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+                  {commercant?.nom_commerce} n'a pas encore envoyé de messages.
+                </div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -426,8 +500,12 @@ export default function ClientCard() {
                         <div style={{ fontSize: 11, color: '#94A3B8' }}>{new Date(m.created_at).toLocaleDateString('fr-FR')}</div>
                       </div>
                     </div>
-                    {(m.titre || m.title) && <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>{m.titre || m.title}</div>}
-                    <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.7 }}>{m.contenu || m.message || m.texte || m.body || ''}</div>
+                    {(m.titre || m.title) && (
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>{m.titre || m.title}</div>
+                    )}
+                    <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.7 }}>
+                      {m.contenu || m.message || m.texte || m.body || ''}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -435,6 +513,7 @@ export default function ClientCard() {
           </>
         )}
 
+        {/* ── TAB : Mon compte ───────────────────────────────────── */}
         {tab === 'compte' && (
           <>
             <div className={styles.accountCard}>
@@ -446,18 +525,47 @@ export default function ClientCard() {
             </div>
 
             {accountMsg && (
-              <div style={{ background: accountMsg.includes('Erreur') ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${accountMsg.includes('Erreur') ? '#FECACA' : '#BBF7D0'}`, borderRadius: 9, padding: '10px 14px', fontSize: 13, color: accountMsg.includes('Erreur') ? '#DC2626' : '#16A34A', fontWeight: 600, marginBottom: 14 }}>
+              <div style={{
+                background: accountMsg.includes('Erreur') ? '#FEF2F2' : '#F0FDF4',
+                border: `1px solid ${accountMsg.includes('Erreur') ? '#FECACA' : '#BBF7D0'}`,
+                borderRadius: 9,
+                padding: '10px 14px',
+                fontSize: 13,
+                color: accountMsg.includes('Erreur') ? '#DC2626' : '#16A34A',
+                fontWeight: 600,
+                marginBottom: 14,
+              }}>
                 {accountMsg}
               </div>
             )}
 
             {!editAccount ? (
               <div className={styles.infoSection}>
-                <div className={styles.infoRow}><div className={styles.infoLabel}>Nom complet</div><div className={styles.infoValue}>{client.nom_complet || '—'}</div></div>
-                <div className={styles.infoRow}><div className={styles.infoLabel}>Email</div><div className={styles.infoValue}>{client.email}</div></div>
-                <div className={styles.infoRow}><div className={styles.infoLabel}>Téléphone</div><div className={styles.infoValue}>{client.telephone || '—'}</div></div>
-                <div className={styles.infoRow} style={{ borderBottom: 'none' }}><div className={styles.infoLabel}>Membre depuis</div><div className={styles.infoValue}>{client.created_at ? new Date(client.created_at).toLocaleDateString('fr-FR') : '—'}</div></div>
-                <button className={styles.btnSecondary} style={{ marginTop: 12 }} onClick={() => { setAccountForm({ nom_complet: client.nom_complet || '', telephone: client.telephone || '' }); setEditAccount(true); setAccountMsg('') }}>
+                <div className={styles.infoRow}>
+                  <div className={styles.infoLabel}>Nom complet</div>
+                  <div className={styles.infoValue}>{client.nom_complet || '—'}</div>
+                </div>
+                <div className={styles.infoRow}>
+                  <div className={styles.infoLabel}>Email</div>
+                  <div className={styles.infoValue}>{client.email}</div>
+                </div>
+                <div className={styles.infoRow}>
+                  <div className={styles.infoLabel}>Téléphone</div>
+                  <div className={styles.infoValue}>{client.telephone || '—'}</div>
+                </div>
+                <div className={styles.infoRow} style={{ borderBottom: 'none' }}>
+                  <div className={styles.infoLabel}>Membre depuis</div>
+                  <div className={styles.infoValue}>{client.created_at ? new Date(client.created_at).toLocaleDateString('fr-FR') : '—'}</div>
+                </div>
+                <button
+                  className={styles.btnSecondary}
+                  style={{ marginTop: 12 }}
+                  onClick={() => {
+                    setAccountForm({ nom_complet: client.nom_complet || '', telephone: client.telephone || '' })
+                    setEditAccount(true)
+                    setAccountMsg('')
+                  }}
+                >
                   ✏️ Modifier mon profil
                 </button>
               </div>
@@ -465,27 +573,45 @@ export default function ClientCard() {
               <div className={styles.infoSection} style={{ padding: '14px' }}>
                 <div className={styles.field}>
                   <label>Nom complet</label>
-                  <input type="text" value={accountForm.nom_complet} onChange={e => setAccountForm(f => ({ ...f, nom_complet: e.target.value }))} placeholder="Marie Dupont" />
+                  <input
+                    type="text"
+                    value={accountForm.nom_complet}
+                    onChange={e => setAccountForm(f => ({ ...f, nom_complet: e.target.value }))}
+                    placeholder="Marie Dupont"
+                  />
                 </div>
                 <div className={styles.field} style={{ marginBottom: 0 }}>
                   <label>Téléphone</label>
-                  <input type="tel" value={accountForm.telephone} onChange={e => setAccountForm(f => ({ ...f, telephone: e.target.value }))} placeholder="06 12 34 56 78" />
+                  <input
+                    type="tel"
+                    value={accountForm.telephone}
+                    onChange={e => setAccountForm(f => ({ ...f, telephone: e.target.value }))}
+                    placeholder="06 12 34 56 78"
+                  />
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                  <button className={styles.btnPrimary} style={{ flex: 1 }} onClick={saveAccount} disabled={savingAccount}>{savingAccount ? 'Sauvegarde...' : 'Enregistrer'}</button>
-                  <button className={styles.btnSecondary} style={{ flex: 1, marginTop: 0 }} onClick={() => { setEditAccount(false); setAccountMsg('') }}>Annuler</button>
+                  <button className={styles.btnPrimary} style={{ flex: 1 }} onClick={saveAccount} disabled={savingAccount}>
+                    {savingAccount ? 'Sauvegarde...' : 'Enregistrer'}
+                  </button>
+                  <button className={styles.btnSecondary} style={{ flex: 1, marginTop: 0 }} onClick={() => { setEditAccount(false); setAccountMsg('') }}>
+                    Annuler
+                  </button>
                 </div>
               </div>
             )}
 
+            {/* Mes enseignes */}
             <div className={styles.sectionTitle} style={{ marginTop: 24 }}>Mes enseignes ({adhesions.length})</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
               {adhesions.map(adh => {
                 const isActive = adh.commercant_id === client.commercant_id
                 return (
-                  <div key={adh.commercant_id} className={styles.rewardRow}
+                  <div
+                    key={adh.commercant_id}
+                    className={styles.rewardRow}
                     style={{ cursor: 'pointer', background: isActive ? '#EFF6FF' : '#fff', borderColor: isActive ? '#BFDBFE' : '#E8F0FE' }}
-                    onClick={() => switchCommerce(adh.commercant_id)}>
+                    onClick={() => switchCommerce(adh.commercant_id)}
+                  >
                     <div style={{ width: 38, height: 38, background: isActive ? '#2563EB' : '#F1F5F9', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: isActive ? '#fff' : '#64748B', flexShrink: 0 }}>
                       {adh.commercants?.nom_commerce?.[0]?.toUpperCase() || '?'}
                     </div>
@@ -499,28 +625,36 @@ export default function ClientCard() {
               })}
             </div>
 
-            <button onClick={handleLogout} className={styles.btnDanger}>Déconnexion</button>
+            <button onClick={handleLogout} className={styles.btnDanger}>
+              Déconnexion
+            </button>
           </>
         )}
       </div>
 
+      {/* ── Barre de navigation basse ────────────────────────────── */}
       <div className={styles.bottomNav}>
         <button onClick={() => setTab('carte')} className={tab === 'carte' ? styles.navItemActive : styles.navItem}>
-          <span className={styles.navIcon}>🪪</span><span>Ma carte</span>
+          <span className={styles.navIcon}>🪪</span>
+          <span>Ma carte</span>
         </button>
         <button onClick={() => setTab('points')} className={tab === 'points' ? styles.navItemActive : styles.navItem}>
-          <span className={styles.navIcon}>⭐</span><span>Mes points</span>
+          <span className={styles.navIcon}>⭐</span>
+          <span>Mes points</span>
         </button>
         <button onClick={() => setTab('messages')} className={tab === 'messages' ? styles.navItemActive : styles.navItem}>
-          <span className={styles.navIcon}>💬</span><span>Messages</span>
+          <span className={styles.navIcon}>💬</span>
+          <span>Messages</span>
         </button>
         <button onClick={() => setTab('compte')} className={tab === 'compte' ? styles.navItemActive : styles.navItem}>
-          <span className={styles.navIcon}>👤</span><span>Mon compte</span>
+          <span className={styles.navIcon}>👤</span>
+          <span>Mon compte</span>
         </button>
       </div>
     </div>
   )
 }
+
 
 
 
