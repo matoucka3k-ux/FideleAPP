@@ -15,7 +15,7 @@ export default function Encaisser() {
   const [client, setClient] = useState(null)
   const [selCat, setSelCat] = useState(0)
   const [panier, setPanier] = useState([])
-  const [caisseTab, setCaisseTab] = useState('articles') // 'articles' | 'recompenses'
+  const [caisseTab, setCaisseTab] = useState('articles')
   const [saving, setSaving] = useState(false)
   const [recompenseUsed, setRecompenseUsed] = useState(null)
 
@@ -23,7 +23,6 @@ export default function Encaisser() {
     ? `${window.location.origin}/rejoindre/${commercant.slug}`
     : `${window.location.origin}/rejoindre`
 
-  // Échappe les caractères HTML pour éviter les injections XSS dans document.write
   const escapeHtml = (str) =>
     String(str ?? '')
       .replace(/&/g, '&amp;')
@@ -85,17 +84,26 @@ export default function Encaisser() {
 
   useEffect(() => { if (user) loadClients() }, [user])
   useEffect(() => {
-    setFiltered(clients.filter(c => c.nom_complet.toLowerCase().includes(search.toLowerCase())))
+    const q = search.toLowerCase()
+    setFiltered(clients.filter(c =>
+      c.nom_complet?.toLowerCase().includes(q) ||
+      c.telephone?.toLowerCase().includes(q) ||
+      c.email?.toLowerCase().includes(q)
+    ))
   }, [search, clients])
   useEffect(() => { if (user) { loadCats(); loadRecompenses() } }, [user])
 
   async function loadClients() {
     const { data } = await supabase
-      .from('clients')
-      .select('*')
+      .from('adhesions')
+      .select('points, clients(*)')
       .eq('commercant_id', user.id)
       .order('created_at', { ascending: false })
-    setClients(data || [])
+    const normalized = (data || []).map(adh => ({
+      ...adh.clients,
+      points: adh.points ?? 0,
+    }))
+    setClients(normalized)
   }
 
   async function loadCats() {
@@ -153,7 +161,6 @@ export default function Encaisser() {
     return acc
   }, {})
 
-  // Récompenses disponibles pour ce client
   const recompensesDisponibles = recompenses.filter(r => client && client.points >= r.points_requis)
   const recompensesIndisponibles = recompenses.filter(r => client && client.points < r.points_requis)
 
@@ -181,27 +188,12 @@ export default function Encaisser() {
     if (client.points < recompense.points_requis) return
     setSaving(true)
     try {
-      // Insérer transaction échange
-      const { error: txError } = await supabase.from('transactions').insert({
-        client_id: client.id,
-        commercant_id: user.id,
-        points: -recompense.points_requis,
-        type: 'echange',
-        description: recompense.nom,
+      const { error } = await supabase.rpc('utiliser_recompense', {
+        p_client_id: client.id,
+        p_commercant_id: user.id,
+        p_recompense_id: recompense.id,
       })
-      if (txError) throw txError
-
-      // Déduire les points dans clients ET adhesions pour garder la cohérence
-      const newPoints = client.points - recompense.points_requis
-      const { error: upError } = await supabase.from('clients')
-        .update({ points: newPoints })
-        .eq('id', client.id)
-      if (upError) throw upError
-      await supabase.from('adhesions')
-        .update({ points: newPoints })
-        .eq('client_id', client.id)
-        .eq('commercant_id', user.id)
-
+      if (error) throw error
       setRecompenseUsed(recompense)
       setState('succes_recompense')
       loadClients()
@@ -215,7 +207,6 @@ export default function Encaisser() {
 
   const allArts = cats[selCat]?.articles || []
 
-  // ÉCRAN SUCCÈS RÉCOMPENSE
   if (state === 'succes_recompense') return (
     <div className={styles.page}>
       <div className={styles.topbar}><div className={styles.title}>Encaisser</div></div>
@@ -241,7 +232,6 @@ export default function Encaisser() {
     </div>
   )
 
-  // ÉCRAN SUCCÈS ACHAT
   if (state === 'succes') return (
     <div className={styles.page}>
       <div className={styles.topbar}><div className={styles.title}>Encaisser</div></div>
@@ -269,7 +259,6 @@ export default function Encaisser() {
     </div>
   )
 
-  // ÉCRAN CAISSE
   if (state === 'caisse') return (
     <div className={styles.page}>
       <div className={styles.topbar}>
@@ -296,7 +285,6 @@ export default function Encaisser() {
                 <div className={styles.ptsBarFill} style={{ width: `${Math.min(100, (client.points / 1000) * 100)}%` }} />
               </div>
             </div>
-            {/* Badge récompenses disponibles */}
             {recompensesDisponibles.length > 0 && (
               <div style={{ marginTop: 12, background: '#FEF9C3', border: '1px solid #FDE68A', borderRadius: 10, padding: '10px 14px', fontSize: 13, fontWeight: 600, color: '#92400E' }}>
                 🎁 {recompensesDisponibles.length} récompense{recompensesDisponibles.length > 1 ? 's' : ''} disponible{recompensesDisponibles.length > 1 ? 's' : ''} !
@@ -305,30 +293,11 @@ export default function Encaisser() {
           </div>
 
           <div className={styles.card}>
-            {/* ONGLETS */}
             <div style={{ display: 'flex', gap: 4, background: '#F1F5F9', borderRadius: 9, padding: 3, marginBottom: 16 }}>
-              <button
-                onClick={() => setCaisseTab('articles')}
-                style={{
-                  flex: 1, padding: '7px 0', borderRadius: 7, border: 'none', fontFamily: 'inherit',
-                  fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                  background: caisseTab === 'articles' ? '#fff' : 'none',
-                  color: caisseTab === 'articles' ? '#2563EB' : '#64748B',
-                  boxShadow: caisseTab === 'articles' ? '0 1px 3px rgba(0,0,0,.08)' : 'none'
-                }}
-              >
+              <button onClick={() => setCaisseTab('articles')} style={{ flex: 1, padding: '7px 0', borderRadius: 7, border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer', background: caisseTab === 'articles' ? '#fff' : 'none', color: caisseTab === 'articles' ? '#2563EB' : '#64748B', boxShadow: caisseTab === 'articles' ? '0 1px 3px rgba(0,0,0,.08)' : 'none' }}>
                 Articles achetés
               </button>
-              <button
-                onClick={() => setCaisseTab('recompenses')}
-                style={{
-                  flex: 1, padding: '7px 0', borderRadius: 7, border: 'none', fontFamily: 'inherit',
-                  fontSize: 13, fontWeight: 700, cursor: 'pointer', position: 'relative',
-                  background: caisseTab === 'recompenses' ? '#fff' : 'none',
-                  color: caisseTab === 'recompenses' ? '#D97706' : '#64748B',
-                  boxShadow: caisseTab === 'recompenses' ? '0 1px 3px rgba(0,0,0,.08)' : 'none'
-                }}
-              >
+              <button onClick={() => setCaisseTab('recompenses')} style={{ flex: 1, padding: '7px 0', borderRadius: 7, border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer', position: 'relative', background: caisseTab === 'recompenses' ? '#fff' : 'none', color: caisseTab === 'recompenses' ? '#D97706' : '#64748B', boxShadow: caisseTab === 'recompenses' ? '0 1px 3px rgba(0,0,0,.08)' : 'none' }}>
                 Récompenses
                 {recompensesDisponibles.length > 0 && (
                   <span style={{ position: 'absolute', top: 4, right: 8, width: 8, height: 8, background: '#F59E0B', borderRadius: '50%' }} />
@@ -336,7 +305,6 @@ export default function Encaisser() {
               </button>
             </div>
 
-            {/* ONGLET ARTICLES */}
             {caisseTab === 'articles' && (
               <>
                 {allArts.length === 0 ? (
@@ -358,7 +326,6 @@ export default function Encaisser() {
                     })}
                   </div>
                 )}
-
                 <div className={styles.panier}>
                   <div className={styles.panTitle}>Panier</div>
                   {panier.length === 0 ? (
@@ -385,7 +352,6 @@ export default function Encaisser() {
               </>
             )}
 
-            {/* ONGLET RÉCOMPENSES */}
             {caisseTab === 'recompenses' && (
               <div>
                 {recompenses.length === 0 ? (
@@ -395,7 +361,6 @@ export default function Encaisser() {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {/* Récompenses disponibles */}
                     {recompensesDisponibles.length > 0 && (
                       <>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
@@ -407,19 +372,13 @@ export default function Encaisser() {
                               <div style={{ fontSize: 14, fontWeight: 700, color: '#92400E', marginBottom: 3 }}>🎁 {r.nom}</div>
                               <div style={{ fontSize: 12, color: '#B45309', fontWeight: 600 }}>−{r.points_requis} pts</div>
                             </div>
-                            <button
-                              onClick={() => utiliserRecompense(r)}
-                              disabled={saving}
-                              style={{ background: '#F59E0B', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
-                            >
+                            <button onClick={() => utiliserRecompense(r)} disabled={saving} style={{ background: '#F59E0B', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
                               {saving ? '...' : 'Utiliser'}
                             </button>
                           </div>
                         ))}
                       </>
                     )}
-
-                    {/* Récompenses indisponibles */}
                     {recompensesIndisponibles.length > 0 && (
                       <>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: 6, marginBottom: 2 }}>
@@ -450,7 +409,6 @@ export default function Encaisser() {
     </div>
   )
 
-  // ÉCRAN HOME
   return (
     <div className={styles.page}>
       <div className={styles.topbar}>
@@ -461,7 +419,6 @@ export default function Encaisser() {
       </div>
       <div className={styles.content}>
         <div className={styles.twoCol}>
-
           <div className={`${styles.card} ${styles.qrCard}`}>
             <div className={styles.qrBadge}>QR Code de votre boutique</div>
             <div className={styles.qrTitle}>Affichage en boutique — Inscription clients</div>
@@ -505,10 +462,8 @@ export default function Encaisser() {
               }
             </div>
           </div>
-
         </div>
       </div>
     </div>
   )
 }
-
