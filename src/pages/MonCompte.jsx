@@ -85,9 +85,19 @@ export default function MonCompte() {
     background: disabled ? '#F8FAFF' : '#fff', width: '100%'
   })
 
-  if (!commercant) return (
+  if (loading) return (
     <div style={{ minHeight: '100vh', background: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ fontSize: 14, color: '#94A3B8', fontWeight: 600 }}>Chargement...</div>
+    </div>
+  )
+
+  if (!commercant) return (
+    <div style={{ minHeight: '100vh', background: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, padding: 24, textAlign: 'center' }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Impossible de charger le compte</div>
+      <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>
+        Vérifiez votre connexion ou reconnectez-vous.<br />
+        <span style={{ color: '#2563EB', fontWeight: 600, cursor: 'pointer' }} onClick={signOut}>Se déconnecter</span>
+      </div>
     </div>
   )
 
@@ -120,10 +130,12 @@ export default function MonCompte() {
           </div>
         )}
 
+        {/* ONGLETS */}
         <div style={{ display: 'flex', gap: 4, background: '#F1F5F9', borderRadius: 10, padding: 3, width: 'fit-content' }}>
           {TABS.map(t => <button key={t} style={tabStyle(t)} onClick={() => setTab(t)}>{t}</button>)}
         </div>
 
+        {/* PROFIL */}
         {tab === 'Profil' && (
           <div style={s.card}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -169,6 +181,7 @@ export default function MonCompte() {
           </div>
         )}
 
+        {/* ABONNEMENT */}
         {tab === 'Abonnement' && (
           <>
             <div style={s.card}>
@@ -200,6 +213,7 @@ export default function MonCompte() {
           </>
         )}
 
+        {/* SECURITE */}
         {tab === 'Sécurité' && (
           <>
             <div style={s.card}>
@@ -220,6 +234,7 @@ export default function MonCompte() {
           </>
         )}
 
+        {/* LEGAL */}
         {tab === 'Mentions légales & RGPD' && (
           <div style={s.card}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
@@ -304,5 +319,6 @@ export default function MonCompte() {
     </div>
   )
 }
+
 
 
