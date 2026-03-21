@@ -34,36 +34,49 @@ export default function SystemePoints() {
     try {
       await supabase.from('commercants').update({ bonus_bienvenue: bonus || 0 }).eq('id', user.id)
 
-      await supabase.from('categories').delete().eq('commercant_id', user.id)
       const validArticles = articles.filter(a => a.nom.trim())
-      if (validArticles.length > 0) {
-        await supabase.from('categories').insert(
-          validArticles.map(a => ({
-            commercant_id: user.id,
-            nom: a.nom,
-            points_par_euro: a.points || 0,
-            actif: a.actif
-          }))
+      const existingArtIds = articles.filter(a => typeof a.id === 'string').map(a => a.id)
+
+      const newArts = validArticles.filter(a => typeof a.id !== 'string')
+      if (newArts.length > 0) {
+        const { error: insErr } = await supabase.from('categories').insert(
+          newArts.map(a => ({ commercant_id: user.id, nom: a.nom, points_par_euro: a.points || 0, actif: a.actif }))
         )
+        if (insErr) throw insErr
+      }
+      for (const a of validArticles.filter(a => typeof a.id === 'string')) {
+        await supabase.from('categories').update({ nom: a.nom, points_par_euro: a.points || 0, actif: a.actif }).eq('id', a.id)
+      }
+      const keptArtIds = validArticles.filter(a => typeof a.id === 'string').map(a => a.id)
+      const delArtIds = existingArtIds.filter(id => !keptArtIds.includes(id))
+      if (delArtIds.length > 0) {
+        await supabase.from('categories').delete().in('id', delArtIds)
       }
 
-      await supabase.from('recompenses').delete().eq('commercant_id', user.id)
       const validRews = rewards.filter(r => r.nom.trim())
-      if (validRews.length > 0) {
-        await supabase.from('recompenses').insert(
-          validRews.map(r => ({
-            commercant_id: user.id,
-            nom: r.nom,
-            points_requis: r.points_requis || 0
-          }))
+      const existingRewIds = rewards.filter(r => typeof r.id === 'string').map(r => r.id)
+
+      const newRews = validRews.filter(r => typeof r.id !== 'string')
+      if (newRews.length > 0) {
+        const { error: insRewErr } = await supabase.from('recompenses').insert(
+          newRews.map(r => ({ commercant_id: user.id, nom: r.nom, points_requis: r.points_requis || 0, actif: true }))
         )
+        if (insRewErr) throw insRewErr
+      }
+      for (const r of validRews.filter(r => typeof r.id === 'string')) {
+        await supabase.from('recompenses').update({ nom: r.nom, points_requis: r.points_requis || 0 }).eq('id', r.id)
+      }
+      const keptRewIds = validRews.filter(r => typeof r.id === 'string').map(r => r.id)
+      const delRewIds = existingRewIds.filter(id => !keptRewIds.includes(id))
+      if (delRewIds.length > 0) {
+        await supabase.from('recompenses').delete().in('id', delRewIds)
       }
 
       await loadData()
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (e) {
-      console.error(e)
+      console.error('Erreur sauvegarde:', e.message)
       alert('Erreur lors de la sauvegarde. Réessayez.')
     } finally {
       setLoading(false)
@@ -277,3 +290,4 @@ export default function SystemePoints() {
     </div>
   )
 }
+
