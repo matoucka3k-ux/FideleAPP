@@ -22,7 +22,7 @@ export default function MesClients() {
 
   async function loadMessages() {
     const { data } = await supabase
-      .from('messages')
+      .from('messages_commercants')
       .select('*')
       .eq('commercant_id', user.id)
       .order('created_at', { ascending: false })
@@ -224,7 +224,7 @@ export default function MesClients() {
           )}
         </div>
 
-        {/* MESSAGES AUX CLIENTS */}
+        {/* ── MESSAGES AUX CLIENTS ─────────────────────────────── */}
         <div style={{ background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '22px 24px', marginTop: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', border: '1px solid #BFDBFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💬</div>
@@ -233,6 +233,7 @@ export default function MesClients() {
               <div style={{ fontSize: 13, color: '#94A3B8' }}>Envoyez un message visible sur la carte fidélité de tous vos clients</div>
             </div>
           </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, alignItems: 'start' }}>
             <div>
               <input
@@ -262,17 +263,22 @@ export default function MesClients() {
                 )}
               </div>
             </div>
+
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
                 Messages récents
               </div>
               {sentMessages.length === 0 ? (
-                <div style={{ fontSize: 13, color: '#CBD5E1', textAlign: 'center', padding: '16px 0' }}>Aucun message envoyé</div>
+                <div style={{ fontSize: 13, color: '#CBD5E1', textAlign: 'center', padding: '16px 0' }}>
+                  Aucun message envoyé
+                </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {sentMessages.map(m => (
                     <div key={m.id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, padding: '10px 12px' }}>
-                      {m.titre && <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>{m.titre}</div>}
+                      {m.titre && (
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>{m.titre}</div>
+                      )}
                       <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.6, marginBottom: 5 }}>{m.contenu}</div>
                       <div style={{ fontSize: 11, color: '#94A3B8' }}>
                         {new Date(m.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
