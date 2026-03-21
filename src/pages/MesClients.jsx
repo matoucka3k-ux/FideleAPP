@@ -12,45 +12,46 @@ export default function MesClients() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({ nom: '', email: '', telephone: '' })
-const [sentMessages, setSentMessages] = useState([])
-const [msgTitre, setMsgTitre] = useState('')
-const [msgContenu, setMsgContenu] = useState('')
-const [msgSending, setMsgSending] = useState(false)
-const [msgSuccess, setMsgSuccess] = useState(false)
+  const [sentMessages, setSentMessages] = useState([])
+  const [msgTitre, setMsgTitre] = useState('')
+  const [msgContenu, setMsgContenu] = useState('')
+  const [msgSending, setMsgSending] = useState(false)
+  const [msgSuccess, setMsgSuccess] = useState(false)
 
-useEffect(() => { if (user) { loadClients(); loadMessages() } }, [user])
+  useEffect(() => { if (user) { loadClients(); loadMessages() } }, [user])
 
-async function loadMessages() {
-  const { data } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('commercant_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(10)
-  setSentMessages(data || [])
-}
-
-async function sendMessage() {
-  if (!msgContenu.trim()) return
-  setMsgSending(true)
-  try {
-    const { error } = await supabase.from('messages').insert({
-      commercant_id: user.id,
-      titre: msgTitre.trim() || null,
-      contenu: msgContenu.trim(),
-    })
-    if (error) throw error
-    setMsgTitre('')
-    setMsgContenu('')
-    setMsgSuccess(true)
-    setTimeout(() => setMsgSuccess(false), 3000)
-    loadMessages()
-  } catch (e) {
-    alert('Erreur lors de l\'envoi. Réessayez.')
-  } finally {
-    setMsgSending(false)
+  async function loadMessages() {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('commercant_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    setSentMessages(data || [])
   }
-}
+
+  async function sendMessage() {
+    if (!msgContenu.trim()) return
+    setMsgSending(true)
+    try {
+      const { error } = await supabase.from('messages').insert({
+        commercant_id: user.id,
+        titre: msgTitre.trim() || null,
+        contenu: msgContenu.trim(),
+      })
+      if (error) throw error
+      setMsgTitre('')
+      setMsgContenu('')
+      setMsgSuccess(true)
+      setTimeout(() => setMsgSuccess(false), 3000)
+      loadMessages()
+    } catch (e) {
+      console.error('Erreur envoi message:', e.message)
+      alert('Erreur lors de l\'envoi. Réessayez.')
+    } finally {
+      setMsgSending(false)
+    }
+  }
 
   async function loadClients() {
     setLoading(true)
@@ -83,7 +84,6 @@ async function sendMessage() {
     setSaving(true)
     setError('')
     try {
-      // Vérifie si le client existe déjà
       const { data: existing } = await supabase
         .from('clients')
         .select('id')
@@ -97,48 +97,28 @@ async function sendMessage() {
         return
       }
 
-      // Crée un compte auth Supabase avec mot de passe temporaire
-      const tempPassword = Math.random().toString(36).slice(-10) + 'A1!'
+      const randomBytes = new Uint8Array(16)
+      crypto.getRandomValues(randomBytes)
+      const tempPassword = Array.from(randomBytes, b => b.toString(36)).join('').slice(0, 12) + 'A1!'
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email.trim(),
         password: tempPassword,
       })
       if (authError) throw authError
 
-      // Crée le profil client
-      const { error: clientError } = await supabase.from('clients').insert({
-        id: authData.user.id,
-        commercant_id: user.id,
-        nom_complet: form.nom.trim(),
-        email: form.email.trim(),
-        telephone: form.telephone.trim(),
-        points: commercant?.bonus_bienvenue || 0,
-        notifications_acceptees: false,
+      const { error: createError } = await supabase.rpc('merchant_creer_client', {
+        p_client_id:     authData.user.id,
+        p_commercant_id: user.id,
+        p_nom_complet:   form.nom.trim(),
+        p_email:         form.email.trim(),
+        p_telephone:     form.telephone.trim(),
       })
-      if (clientError) throw clientError
-
-      // Crée l'adhésion
-      await supabase.from('adhesions').insert({
-        client_id: authData.user.id,
-        commercant_id: user.id,
-        points: commercant?.bonus_bienvenue || 0,
-      })
-
-      // Bonus bienvenue si applicable
-      if (commercant?.bonus_bienvenue > 0) {
-        await supabase.from('transactions').insert({
-          client_id: authData.user.id,
-          commercant_id: user.id,
-          points: commercant.bonus_bienvenue,
-          type: 'bonus_bienvenue',
-          description: 'Bonus de bienvenue — ' + commercant.nom_commerce,
-        })
-      }
+      if (createError) throw createError
 
       await loadClients()
       setSuccess(true)
     } catch (e) {
-      console.error(e)
+      console.error('Erreur création client:', e.message)
       setError(e.message || 'Erreur lors de la création. Réessayez.')
     } finally {
       setSaving(false)
@@ -166,7 +146,6 @@ async function sendMessage() {
     searchInput: { width: '100%', maxWidth: 340, background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: 9, padding: '9px 14px', fontSize: 14, fontFamily: 'inherit', color: '#0F172A', outline: 'none' },
     tableCard: { background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, overflow: 'hidden' },
     tableHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #F1F5F9', fontSize: 14, fontWeight: 700, color: '#0F172A' },
-    // Modal
     overlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
     modal: { background: '#fff', borderRadius: 16, padding: '28px 28px 24px', width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,.15)' },
     label: { fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.06em', display: 'block', marginBottom: 6 },
@@ -244,7 +223,7 @@ async function sendMessage() {
             </table>
           )}
         </div>
-      </div>
+
         {/* MESSAGES AUX CLIENTS */}
         <div style={{ background: '#fff', border: '1px solid #E8F0FE', borderRadius: 12, padding: '22px 24px', marginTop: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
