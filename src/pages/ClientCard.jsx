@@ -169,7 +169,7 @@ export default function ClientCard() {
     setTransactions(txRes.data || [])
     setMessages(msgRes.data || [])
     // Priorité à adhesions.points (par commerce), fallback sur clients.points si non défini
-    const freshPoints = adhRes.data?.points ?? client.points ?? 0
+    const freshPoints = Math.max(adhRes.data?.points ?? 0, client.points ?? 0)
     setClient(prev => ({ ...prev, points: freshPoints }))
     if (commRes.data) setCommercant(commRes.data)
   }
