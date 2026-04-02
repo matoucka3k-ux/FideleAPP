@@ -13,7 +13,7 @@ export default function Welcome() {
   const [nextId, setNextId] = useState(10)
   const [loading, setLoading] = useState(false)
 
-  const prenom = commercant?.nom_complet?.split(' ')[0] || 'là'
+  const prenom = commercant?.nom_complet || ''
   const nomCommerce = commercant?.nom_commerce || 'votre commerce'
 
   const updateArticle = (id, f, v) => setArticles(a => a.map(x => x.id === id ? { ...x, [f]: v } : x))
@@ -104,7 +104,7 @@ export default function Welcome() {
             <div style={{ textAlign: 'center', marginBottom: 40 }}>
               <div style={{ fontSize: 40, marginBottom: 16 }}>🎉</div>
               <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0F172A', marginBottom: 10, letterSpacing: -0.5 }}>
-                Bienvenue {prenom} — {nomCommerce} !
+                Bienvenue {prenom} !
               </h1>
               <p style={{ fontSize: 15, color: '#64748B', lineHeight: 1.7, maxWidth: 480, margin: '0 auto' }}>
                 Votre compte est prêt. Configurons maintenant votre programme de fidélité en 2 étapes rapides.
